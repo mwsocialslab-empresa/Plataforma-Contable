@@ -1,0 +1,21 @@
+#pantalla-login {
+    background: linear-gradient(135deg, #212529 0%, #000000 100%);
+}
+#pantalla-login .card {
+    border-radius: 15px;
+    background: #ffffff;
+}
+/* Esto fuerza a que el sistema use el 95% del ancho de la pantalla */
+.container-fluid {
+    width: 95% !important;
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Para que la tabla no se vea apretada ahora que es más ancha */
+.table th, .table td {
+    white-space: nowrap; /* Evita que los textos largos se corten en dos líneas */
+    padding: 12px 8px !important;
+}

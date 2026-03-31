@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Sistema de Liquidaciones - MWsocials</title>
+    <title>Sueldos - MWsocials</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
@@ -11,179 +11,234 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm py-2">
-    <div class="container">
-       <a class="navbar-brand d-flex align-items-center" href="#" onclick="mostrarSeccion('inicio')">
-            <img src="img/logo.png" alt="Logo" class="me-2" style="width: 140px; filter: brightness(0) invert(1);">
-            <span class="ms-2 fw-bold text-uppercase small border-start ps-2">Sueldos</span>
-        </a>
-        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#menuNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="menuNav">
-            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('empresas')">EMPRESA</a></li>
-                <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('gremios')">GREMIOS</a></li>
-                <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('empleados')">EMPLEADOS</a></li>
-                <li class="nav-item"><a href="#" class="nav-link px-3 fw-bold text-warning" onclick="mostrarSeccion('liquidaciones')">LIQUIDACIONES 🔥</a></li>
-            </ul>
+    <div id="pantalla-login" class="min-vh-100 d-flex align-items-center justify-content-center bg-dark">
+        <div class="card border-0 shadow-lg rounded-4 p-4" style="max-width: 400px; width: 90%;">
+            <div class="text-center mb-4">
+                <div class="display-4 text-warning mb-2"><i class="bi bi-person-lock"></i></div>
+                <h4 class="fw-bold text-uppercase text-dark">Acceso Privado</h4>
+            </div>
+            <form id="form-login">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Usuario</label>
+                    <input type="text" id="user-login" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Contraseña</label>
+                    <input type="password" id="pass-login" class="form-control bg-light border-0" required>
+                </div>
+                <button type="submit" class="btn btn-warning w-100 py-3 fw-bold rounded-pill shadow">ENTRAR</button>
+                <div id="error-login" class="text-danger text-center mt-3 d-none">⚠️ Credenciales incorrectas</div>
+            </form>
         </div>
     </div>
-</nav>
 
-<main class="container my-4">
-    <section id="sec-inicio" class="seccion-app">
-        <div class="p-5 mb-4 bg-white rounded-4 shadow-sm border">
-            <div class="container-fluid py-2 text-center">
-                <h1 class="display-6 fw-bold">Gestión de Liquidaciones</h1>
-                <p class="fs-5 text-muted">Panel administrativo para control de haberes.</p>
-                <hr class="my-4 w-25 mx-auto">
-                <div class="row g-4 mt-2 justify-content-center">
-                    <div class="col-6 col-md-3">
-                        <div class="card h-100 border-0 shadow-sm text-center p-4 hover-card" onclick="mostrarSeccion('empresas')">
-                            <i class="bi bi-building fs-1 text-primary"></i>
-                            <div class="fw-bold mt-2">EMPRESAS</div>
+    <div id="app-sistema" class="d-none">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm py-2">
+            <div class="container">
+                <a class="navbar-brand d-flex align-items-center" href="#" onclick="mostrarSeccion('inicio')">
+                    <i class="bi bi-cpu-fill text-warning me-2"></i>
+                    <span class="fw-bold text-uppercase small">MWsocials <span class="text-warning">Sueldos</span></span>
+                </a>
+                <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#menuNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="menuNav">
+                    <ul class="navbar-nav ms-auto fw-bold small">
+                        <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('empresas')">EMPRESA</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('gremios')">GREMIOS</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('empleados')">EMPLEADOS</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link px-3 text-warning" onclick="mostrarSeccion('liquidaciones')">LIQUIDACIONES 🔥</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link px-3 text-danger" onclick="cerrarSesion()"><i class="bi bi-power"></i></a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <main class="container my-4">
+            
+            <section id="sec-inicio" class="seccion-app">
+                <div class="p-5 mb-4 bg-white rounded-4 shadow-sm border text-center">
+                    <h1 class="display-6 fw-bold">Gestión de Liquidaciones</h1>
+                    <p class="text-muted">Bienvenido, Walter. Selecciona una opción para comenzar.</p>
+                    <div class="row g-3 mt-2 justify-content-center">
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 shadow-sm p-4 hover-card cursor-pointer" onclick="mostrarSeccion('empresas')" style="cursor: pointer;">
+                                <i class="bi bi-building fs-1 text-primary"></i>
+                                <div class="fw-bold mt-2">EMPRESAS</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="card h-100 border-0 shadow-sm text-center p-4 hover-card" onclick="mostrarSeccion('gremios')">
-                            <i class="bi bi-person-badge fs-1 text-warning"></i>
-                            <div class="fw-bold mt-2">GREMIOS</div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 shadow-sm p-4 hover-card cursor-pointer" onclick="mostrarSeccion('gremios')" style="cursor: pointer;">
+                                <i class="bi bi-person-badge fs-1 text-warning"></i>
+                                <div class="fw-bold mt-2">GREMIOS</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="card h-100 border-0 shadow-sm text-center p-4 hover-card" onclick="mostrarSeccion('empleados')">
-                            <i class="bi bi-people fs-1 text-success"></i>
-                            <div class="fw-bold mt-2">EMPLEADOS</div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 shadow-sm p-4 hover-card cursor-pointer" onclick="mostrarSeccion('empleados')" style="cursor: pointer;">
+                                <i class="bi bi-people fs-1 text-success"></i>
+                                <div class="fw-bold mt-2">EMPLEADOS</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
+            </section>
 
-    <section id="sec-empresas" class="seccion-app d-none">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold"><i class="bi bi-building me-2"></i> MIS EMPRESAS</h5>
-                <button class="btn btn-warning btn-sm fw-bold px-3 rounded-pill" onclick="abrirModalEmpresa()">
-                    + NUEVA EMPRESA
-                </button>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Empresa / CUIT</th>
-                                <th>Dirección</th>
-                                <th>Localidad</th>
-                                <th class="text-end px-4">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-empresas">
+            <section id="sec-empresas" class="seccion-app d-none">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm rounded-4 bg-dark text-white p-3 h-100 d-flex flex-row align-items-center">
+                            <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
+                                <i class="bi bi-building fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold">MIS EMPRESAS</h6>
+                                <small class="opacity-75">Listado de empleadores</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100 d-flex flex-row align-items-center hover-card cursor-pointer" onclick="abrirModalEmpresa()" style="cursor: pointer;">
+                            <div class="rounded-circle bg-light text-warning d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px; border: 1px dashed orange;"><i class="bi bi-plus-lg fs-5"></i></div>
+                            <div><h6 class="mb-0 fw-bold">NUEVA EMPRESA</h6><small class="text-muted">Registrar empleador</small></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                    <div class="card-header bg-white p-3"><h5 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2 text-warning"></i> LISTADO</h5></div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 small" style="min-width: 1000px;">
+                            <thead class="table-light text-uppercase">
+                                <tr>
+                                    <th>Empleador</th><th>CUIT</th><th>Dirección</th><th>Banco</th>
+                                    <th class="text-center">P. Depo</th><th class="text-center">Últ. Depo</th>
+                                    <th class="text-center">Abonado</th><th class="text-center">F. Pago</th>
+                                    <th>Base</th><th class="text-end pe-3">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-empresas"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sec-detalle-empresa" class="seccion-app d-none">
+                <div id="cabecera-empresa-detalle" class="card border-0 shadow-sm rounded-4 bg-dark text-white p-4 mb-4"></div>
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                    <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-people-fill me-2"></i> EMPLEADOS</h5>
+                        <button class="btn btn-primary btn-sm rounded-pill px-3 fw-bold" onclick="abrirModalEmpleado()"><i class="bi bi-person-plus me-1"></i> AGREGAR</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-uppercase">
+                                <tr><th>Nombre</th><th>CUIL</th><th>Cargo</th><th class="text-end">Acciones</th></tr>
+                            </thead>
+                            <tbody id="tabla-empleados-cuerpo">
+                                <tr><td colspan="4" class="text-center py-4 text-muted small">No hay empleados registrados.</td></tr>
                             </tbody>
-                    </table>
+                        </table>
+                    </div>
+                </div>
+                <button class="btn btn-link text-decoration-none text-muted mt-3 p-0" onclick="mostrarSeccion('empresas')"><i class="bi bi-arrow-left"></i> Volver al listado</button>
+            </section>
+
+            <section id="sec-gremios" class="seccion-app d-none"><div class="alert alert-info">Próximamente: Gestión de Gremios</div></section>
+            <section id="sec-empleados" class="seccion-app d-none"><div class="alert alert-info">Próximamente: Listado general de empleados</div></section>
+            <section id="sec-liquidaciones" class="seccion-app d-none"><div class="alert alert-info">Próximamente: Panel de Liquidaciones</div></section>
+        </main>
+    </div>
+
+    <div class="modal fade" id="modalEmpresa" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header bg-dark text-white border-0">
+                    <h5 class="modal-title fw-bold" id="tituloModalEmpresa">EMPRESA</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-empresa" class="row g-3">
+                        <div class="col-md-6"><label class="form-label small fw-bold">Razón Social</label><input type="text" id="emp-nombre" class="form-control border-0 bg-light" required></div>
+                        <div class="col-md-6"><label class="form-label small fw-bold">CUIT</label><input type="text" id="emp-cuit" class="form-control border-0 bg-light" required></div>
+                        <div class="col-md-6"><label class="form-label small fw-bold">Dirección</label><input type="text" id="emp-direccion" class="form-control border-0 bg-light" required></div>
+                        <div class="col-md-6"><label class="form-label small fw-bold">Domicilio</label><input type="text" id="emp-domicilio" class="form-control border-0 bg-light"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">P. Depo</label><input type="month" id="emp-periodo" class="form-control border-0 bg-light"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">F. Depo</label><input type="date" id="emp-fecha-depo" class="form-control border-0 bg-light"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">P. Abonado</label><input type="month" id="emp-periodo-abonado" class="form-control border-0 bg-light"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">F. Pago</label><input type="date" id="emp-fecha-pago" class="form-control border-0 bg-light"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Banco</label><input type="text" id="emp-banco" class="form-control border-0 bg-light"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Base Mensual</label><input type="text" id="emp-base" class="form-control border-0 bg-light"></div>
+                        <div class="col-12 mt-4"><button type="submit" class="btn btn-dark w-100 py-3 fw-bold rounded-pill shadow">GUARDAR CAMBIOS</button></div>
+                    </form>
                 </div>
             </div>
         </div>
-    </section>
-
-    <section id="sec-gremios" class="seccion-app d-none">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold"><i class="bi bi-person-badge me-2"></i> CONFIGURACIÓN DE GREMIOS</h5>
-                <button class="btn btn-warning btn-sm fw-bold px-3 rounded-pill" onclick="abrirModalGremio()">
-                    + NUEVO GREMIO
-                </button>
+    </div>
+    <div class="modal fade" id="modalEmpleado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title fw-bold">REGISTRAR EMPLEADO</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Sindicato / CCT</th>
-                                <th>Aportes %</th>
-                                <th>Contribuciones %</th>
-                                <th class="text-end px-4">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-gremios">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="sec-empleados" class="seccion-app d-none">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold"><i class="bi bi-people me-2"></i> NOMINA DE EMPLEADOS</h5>
-                <button class="btn btn-warning btn-sm fw-bold px-3 rounded-pill" onclick="abrirModalEmpleado()">
-                    + NUEVO EMPLEADO
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
+            <div class="modal-body p-4">
+                <form id="form-empleado" class="row g-3">
+                    <input type="hidden" id="emp-cuit-vinculo">
+                    
                     <div class="col-md-4">
-                        <select id="filtro-empresa-empleados" class="form-select border-0 bg-light shadow-sm py-2">
-                            <option value="">Todas las empresas...</option>
-                        </select>
+                        <label class="form-label small fw-bold text-uppercase">Legajo</label>
+                        <input type="text" id="empl-legajo" class="form-control border-0 bg-light fw-bold text-primary" readonly>
                     </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light border-0">
-                            <tr>
-                                <th>Legajo</th>
-                                <th>Nombre y Apellido / CUIL</th>
-                                <th>Empresa</th>
-                                <th>Bruto Inicial</th>
-                                <th class="text-end px-4">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-empleados">
-                            </tbody>
-                    </table>
-                </div>
+                    
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold text-uppercase">Nombre del Empleado</label>
+                        <input type="text" id="empl-nombre" class="form-control border-0 bg-light" required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-uppercase">CUIL</label>
+                        <input type="text" id="empl-cuil" class="form-control border-0 bg-light" required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-uppercase">Fecha de Ingreso</label>
+                        <input type="date" id="empl-ingreso" class="form-control border-0 bg-light" required>
+                    </div>
+                    
+                    <div class="col-md-12">
+                        <label class="form-label small fw-bold text-uppercase">Tarea / Cargo</label>
+                        <input type="text" id="empl-tarea" class="form-control border-0 bg-light" required>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold text-uppercase">Sueldo Bruto</label>
+                        <input type="number" id="empl-bruto" class="form-control border-0 bg-light" required>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold text-uppercase">Días Trabajados</label>
+                        <input type="number" id="empl-dias" class="form-control border-0 bg-light" required>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold text-uppercase">Sueldo Básico</label>
+                        <input type="number" id="empl-basico" class="form-control border-0 bg-light" required>
+                    </div>
+                    
+                    <div class="col-12 mt-4">
+                        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow-sm">
+                            GUARDAR EMPLEADO
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
-    </section>
-
-    <section id="sec-liquidaciones" class="seccion-app d-none">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
-                    <h5 class="fw-bold mb-3">Paso 1: Selección</h5>
-                    <label class="small fw-bold text-muted">EMPRESA</label>
-                    <select class="form-select mb-3 bg-light border-0 py-2"></select>
-                    
-                    <label class="small fw-bold text-muted">EMPLEADO</label>
-                    <select class="form-select mb-4 bg-light border-0 py-2"></select>
-                    
-                    <button class="btn btn-danger w-100 fw-bold py-3 rounded-pill shadow">
-                        INICIAR LIQUIDACIÓN <i class="bi bi-lightning-fill"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="col-md-8">
-                <div class="card border-0 shadow-sm rounded-4 p-4 text-center py-5">
-                    <i class="bi bi-calculator fs-1 opacity-25"></i>
-                    <p class="text-muted mt-3">Selecciona un empleado para ver la pre-liquidación aquí.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-</main>
-
-<footer class="bg-dark text-white py-4 mt-5">
-    <div class="container text-center">
-        <p class="small opacity-50 mb-0">&copy; 2026 Sistema Sueldos. Creado por: MWsocials</p>
     </div>
-</footer>
+</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="script.js"></script>
+    <footer class="text-center py-4 small text-muted">&copy; 2026 Sistema Sueldos | MWsocials</footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
