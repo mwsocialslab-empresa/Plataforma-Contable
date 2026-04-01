@@ -1,8 +1,8 @@
 /* ============================================================
-   🔹 SCRIPT.JS: GESTIÓN DE SUELDOS, EMPRESAS Y EMPLEADOS
+   🔹 SCRIPT.JS: GESTIÓN DE SUELDOS (VERSIÓN CORREGIDA)
    ============================================================ */
 
-const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbyTggvQ_IL4elXOv9w53kYWbucG9UbUJ0Kota_ZjD8JgN9SC3lCOqRTHoUBCq_7x8zpVw/exec';
+const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycby5TjVx8Ro_Y0RxnRz7AysrHrnL875blfOC3mXMc0fv4yAVfXfFmqMh5atSZ-pi70Gt1A/exec';
 let editandoCuit = null;
 let cuitEmpresaActiva = null;
 
@@ -39,9 +39,8 @@ function cerrarSesion() {
 function mostrarSeccion(id) {
     document.querySelectorAll('.seccion-app').forEach(sec => sec.classList.add('d-none'));
     const target = document.getElementById('sec-' + id);
-    if (target) {
-        target.classList.remove('d-none');
-    }
+    if (target) target.classList.remove('d-none');
+    
     const nav = document.getElementById('menuNav');
     if (nav?.classList.contains('show')) {
         const bsCollapse = bootstrap.Collapse.getInstance(nav) || new bootstrap.Collapse(nav);
@@ -50,265 +49,338 @@ function mostrarSeccion(id) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-/* --- GESTIÓN DE EMPRESAS --- */
+/* --- GESTIÓN DE EMPRESAS (TABLA SIMPLIFICADA) --- */
 async function cargarEmpresas() {
-    const tabla = document.getElementById('tabla-empresas');
-    if (!tabla) return;
-    tabla.innerHTML = '<tr><td colspan="10" class="text-center py-3">Cargando...</td></tr>';
-
     try {
         const resp = await fetch(`${URL_WEB_APP}?action=leer&t=${Date.now()}`);
         const datos = await resp.json();
-        tabla.innerHTML = ''; 
-        
-        if (!datos || !datos.length) {
-            tabla.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">No hay empresas.</td></tr>';
-            return;
-        }
 
-        datos.forEach(emp => {
-            tabla.innerHTML += `
-                <tr class="border-bottom">
-                    <td class="fw-bold text-primary" style="cursor:pointer" onclick="verDetalleEmpresa('${emp[2]}')">${emp[0]}</td>
+        const tabla = document.getElementById('tabla-empresas');
+        if (!tabla) return;
+        
+        tabla.innerHTML = '';
+
+        if (Array.isArray(datos)) {
+            datos.forEach(emp => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="fw-bold text-primary cursor-pointer" onclick="verDetalleEmpresa('${emp[2]}')">${emp[0]}</td>
                     <td>${emp[2]}</td>
                     <td>${emp[1]}</td>
-                    <td>${emp[9] || '-'}</td>
-                    <td class="text-center">${emp[3] || '-'}</td>
-                    <td class="text-center">${emp[4] || '-'}</td>
-                    <td class="text-center">${emp[5] || '-'}</td>
-                    <td class="text-center">${emp[7] || '-'}</td>
-                    <td class="fw-bold">$${emp[8] || '0'}</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-outline-warning border-0" onclick="prepararEdicionEmpresa('${emp[2]}')"><i class="bi bi-pencil-square"></i></button>
-                        <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarEmpresa('${emp[2]}')"><i class="bi bi-trash"></i></button>
+                    <td class="text-end pe-3">
+                        <button class="btn btn-sm btn-outline-warning border-0" onclick="prepararEdicionEmpresa('${emp[2]}')">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarEmpresa('${emp[2]}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </td>
-                </tr>`;
-        });
-    } catch (e) { tabla.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Error de conexión.</td></tr>'; }
+                `;
+                tabla.appendChild(tr);
+            });
+        }
+    } catch (error) {
+        console.error("Error en cargarEmpresas:", error);
+    }
 }
+
+/* --- ACTUALIZACIÓN DE DETALLE Y FORMULARIO MENSUAL --- */
 
 async function verDetalleEmpresa(cuit) {
     cuitEmpresaActiva = cuit;
     try {
         const resp = await fetch(`${URL_WEB_APP}?action=leer&t=${Date.now()}`);
         const datos = await resp.json();
+        
         const emp = datos.find(e => e[2].toString().replace(/\D/g, '') === cuit.replace(/\D/g, ''));
 
         if (emp) {
-            document.getElementById('cabecera-empresa-detalle').innerHTML = `
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h2 class="fw-bold mb-1 text-warning">${emp[0]}</h2>
-                        <p class="mb-0 opacity-75">
-                            <i class="bi bi-card-text me-2"></i>CUIT: <strong>${emp[2]}</strong> | 
-                            <i class="bi bi-geo-alt me-2"></i>${emp[1]}
-                        </p>
+            const banner = document.getElementById('cabecera-empresa-detalle');
+            const contenedorInputs = document.getElementById('contenedor-inputs-mensuales');
+
+            if (!banner || !contenedorInputs) return;
+
+            banner.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="fw-bold mb-0 text-warning">${emp[0]}</h1>
+                        <small class="text-white-50"><i class="bi bi-geo-alt"></i> ${emp[1] || 'Sin dirección'}</small>
                     </div>
-                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                        <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="mostrarSeccion('empresas')">
-                            <i class="bi bi-arrow-left"></i> VOLVER AL LISTADO
-                        </button>
-                    </div>
+                    <button class="btn btn-outline-light btn-sm rounded-pill px-3 fw-bold" onclick="mostrarSeccion('empresas')">
+                        <i class="bi bi-arrow-left me-1"></i> VOLVER AL LISTADO
+                    </button>
                 </div>`;
+
+            const limpiarFechaParaInput = (fechaStr, esMes = false) => {
+                if (!fechaStr || fechaStr === '-' || fechaStr === '0') return '';
+                let fechaLimpia = fechaStr.includes('T') ? fechaStr.split('T')[0] : fechaStr;
+                if (esMes && fechaLimpia.length > 7) return fechaLimpia.substring(0, 7); 
+                return fechaLimpia;
+            };
+            
+            contenedorInputs.innerHTML = `
+                <div class="col-md-3">
+                    <label class="small fw-bold text-light opacity-75">CUIT</label>
+                    <input type="text" id="m-cuit" class="form-control form-control-sm border-0 bg-dark text-white" value="${emp[2]}" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold text-light opacity-75">BANCO</label>
+                    <input type="text" id="m-banco" class="form-control form-control-sm border-0" style="background: #3e4f5f; color: white;" value="${emp[9] || ''}">
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold text-light opacity-75">BASE MENSUAL</label>
+                    <input type="text" id="m-base" class="form-control form-control-sm border-0" style="background: #3e4f5f; color: white;" value="${emp[8] || ''}">
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold text-light opacity-75">DIRECCIÓN</label>
+                    <input type="text" id="m-dir" class="form-control form-control-sm border-0" style="background: #3e4f5f; color: white;" value="${emp[1] || ''}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="small fw-bold text-info">PERIODO DEPO.</label>
+                    <input type="month" id="m-p-depo" class="form-control form-control-sm border-0" style="background: #3e4f5f; color: white;" value="${limpiarFechaParaInput(emp[3], true)}">
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold text-info">FECHA DEPO.</label>
+                    <input type="date" id="m-f-depo" class="form-control form-control-sm border-0" style="background: #3e4f5f; color: white;" value="${limpiarFechaParaInput(emp[4], false)}">
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold text-info">PERIODO ABONADO</label>
+                    <input type="month" id="m-p-abo" class="form-control form-control-sm border-0" style="background: #3e4f5f; color: white;" value="${limpiarFechaParaInput(emp[5], true)}">
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold text-info">FECHA PAGO</label>
+                    <input type="date" id="m-f-pago" class="form-control form-control-sm border-0" style="background: #3e4f5f; color: white;" value="${limpiarFechaParaInput(emp[7], false)}">
+                </div>
+                <input type="hidden" id="m-nombre" value="${emp[0]}">
+                <input type="hidden" id="m-domicilio" value="${emp[6] || ''}">
+            `;
+
             mostrarSeccion('detalle-empresa');
             cargarEmpleadosEmpresa(cuit);
         }
-    } catch (e) { console.error("Error en detalle:", e); }
+    } catch (e) { 
+        console.error("Error crítico en detalle:", e);
+    }
 }
 
-/* --- GESTIÓN DE EMPLEADOS --- */
+document.getElementById('form-datos-mensuales')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
 
-async function cargarEmpresas() {
-    const tabla = document.getElementById('tabla-empresas');
-    if (!tabla) return;
-    tabla.innerHTML = '<tr><td colspan="10" class="text-center py-3">Cargando empresas...</td></tr>';
-
-    // Función interna para limpiar el formato de fecha
-    const formatearFecha = (str) => {
-        if (!str || str === '-') return '-';
-        // Si contiene la "T", es un formato ISO de Google Sheets
-        if (typeof str === 'string' && str.includes('T')) {
-            const soloFecha = str.split('T')[0]; // Nos quedamos con YYYY-MM-DD
-            const [anio, mes, dia] = soloFecha.split('-');
-            return `${dia}/${mes}/${anio}`; // Devolvemos DD/MM/YYYY
-        }
-        return str;
+    const body = {
+        action: 'editar', 
+        cuit: document.getElementById('m-cuit').value,
+        empleador: document.getElementById('m-nombre').value,
+        direccion: document.getElementById('m-dir').value,
+        banco: document.getElementById('m-banco').value,
+        base: document.getElementById('m-base').value,
+        periodo: document.getElementById('m-p-depo').value,
+        fechaUltimoDepo: document.getElementById('m-f-depo').value,
+        periodoAbonado: document.getElementById('m-p-abo').value,
+        fechaPago: document.getElementById('m-f-pago').value,
+        domicilio: document.getElementById('m-domicilio').value
     };
 
     try {
-        const resp = await fetch(`${URL_WEB_APP}?action=leer&t=${Date.now()}`);
-        const datos = await resp.json();
-        
-        if (datos.error) throw new Error(datos.error);
-
-        tabla.innerHTML = ''; 
-        if (!datos.length) {
-            tabla.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">No hay empresas registradas.</td></tr>';
-            return;
+        const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(body) });
+        if ((await resp.text()).includes("OK")) {
+            alert("✅ Datos actualizados correctamente.");
+            cargarEmpresas();
         }
-
-        datos.forEach(emp => {
-            // Aplicamos el formato a cada columna de fecha antes de insertar el HTML
-            const pDepo = formatearFecha(emp[3]);
-            const uDepo = formatearFecha(emp[4]);
-            const abonado = formatearFecha(emp[5]);
-            const fPago = formatearFecha(emp[7]);
-
-            tabla.innerHTML += `
-                <tr class="border-bottom">
-                    <td class="fw-bold text-primary" style="cursor:pointer" onclick="verDetalleEmpresa('${emp[2]}')">${emp[0]}</td>
-                    <td>${emp[2]}</td>
-                    <td>${emp[1]}</td>
-                    <td>${emp[9] || '-'}</td>
-                    <td class="text-center">${pDepo}</td>
-                    <td class="text-center">${uDepo}</td>
-                    <td class="text-center">${abonado}</td>
-                    <td class="text-center">${fPago}</td>
-                    <td class="fw-bold">$${emp[8] || '0'}</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-outline-warning border-0" onclick="prepararEdicionEmpresa('${emp[2]}')"><i class="bi bi-pencil-square"></i></button>
-                        <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarEmpresa('${emp[2]}')"><i class="bi bi-trash"></i></button>
-                    </td>
-                </tr>`;
-        });
-    } catch (e) { 
-        console.error(e);
-        tabla.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Error: ${e.message}</td></tr>`; 
+    } catch (error) { alert("Error de red."); } finally { 
+        btn.disabled = false; 
+        btn.innerHTML = originalText;
     }
-}
-// --- FUNCIÓN PARA LISTAR EMPLEADOS DE UNA EMPRESA ---
+});
+
+/* --- GESTIÓN DE EMPLEADOS --- */
 async function cargarEmpleadosEmpresa(cuit) {
-    const tabla = document.getElementById('tabla-empleados-cuerpo');
-    if(!tabla) return;
-    tabla.innerHTML = '<tr><td colspan="5" class="text-center">Cargando empleados...</td></tr>';
+    const cuerpo = document.getElementById('tabla-empleados-cuerpo');
+    const tablaHeader = document.querySelector('#sec-detalle-empresa thead tr');
+    if (!cuerpo) return;
+
+    // 1. Ajuste del Encabezado: Agregamos la columna de Check al final (oculta)
+    if (!document.getElementById('th-check-header')) {
+        const thCheck = document.createElement('th');
+        thCheck.id = 'th-check-header';
+        thCheck.className = 'text-end d-none'; // Oculto por defecto
+        thCheck.innerHTML = `
+            <div class="d-flex align-items-center justify-content-end">
+                <small class="me-2 text-warning">TODOS</small>
+                <input type="checkbox" id="check-todos-empleados" onclick="toggleTodosEmpleados(this)">
+            </div>`;
+        tablaHeader.appendChild(thCheck);
+    } else {
+        // Si ya existe, nos aseguramos que esté oculto al recargar
+        document.getElementById('th-check-header').classList.add('d-none');
+    }
+
+    cuerpo.innerHTML = '<tr><td colspan="4" class="text-center">Cargando empleados...</td></tr>';
 
     try {
         const resp = await fetch(`${URL_WEB_APP}?tabla=empleados&t=${Date.now()}`);
-        const datos = await resp.json();
-        
-        // Filtramos solo los empleados que pertenecen a este CUIT
-        const filtrados = datos.filter(emp => emp[9]?.toString().replace(/\D/g, '') === cuit.toString().replace(/\D/g, ''));
-        
-        tabla.innerHTML = '';
+        const todosLosEmpleados = await resp.json();
+
+        const filtrados = todosLosEmpleados.filter(em => 
+            em[9]?.toString().replace(/\D/g, '') === cuit.toString().replace(/\D/g, '')
+        );
+
+        cuerpo.innerHTML = '';
+
         if (filtrados.length === 0) {
-            tabla.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay empleados registrados para esta empresa.</td></tr>';
+            cuerpo.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay empleados registrados.</td></tr>';
             return;
         }
 
-        filtrados.forEach(emp => {
-            tabla.innerHTML += `
-                <tr>
-                    <td class="fw-bold text-muted">#${emp[0]}</td>
-                    <td class="fw-bold">${emp[1]}</td>
-                    <td>${emp[2]}</td>
-                    <td><span class="badge bg-light text-dark border">${emp[4]}</span></td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-light border"><i class="bi bi-eye"></i></button>
-                    </td>
-                </tr>`;
+        filtrados.forEach(em => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold">${em[1]}</td>
+                <td>${em[3]}</td>
+                <td><span class="badge bg-light text-dark border">${em[4]}</span></td>
+                <td class="text-end pe-3">
+                    <div class="d-flex align-items-center justify-content-end gap-3">
+                        <button class="btn btn-sm btn-outline-secondary border-0" onclick="verFichaEmpleado('${em[3]}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <input type="checkbox" class="check-empleado d-none" value="${em[3]}">
+                    </div>
+                </td>
+            `;
+            cuerpo.appendChild(tr);
         });
-    } catch (e) {
-        console.error("Error al cargar empleados:", e);
-        tabla.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar empleados.</td></tr>';
+    } catch (error) {
+        console.error("Error:", error);
     }
 }
-/* --- FUNCIÓN CORREGIDA: ABRIR MODAL CON LEGAJO AUTOMÁTICO --- */
 
 async function abrirModalEmpleado() {
-    // 1. Verificación de seguridad: ¿Hay una empresa seleccionada?
-    if (!cuitEmpresaActiva) {
-        alert("Por favor, selecciona una empresa primero.");
-        return;
-    }
-
-    const formulario = document.getElementById('form-empleado');
+    if (!cuitEmpresaActiva) return alert("Selecciona una empresa primero.");
     const inputLegajo = document.getElementById('empl-legajo');
-    const campoVinculo = document.getElementById('emp-cuit-vinculo');
-    
-    // 2. Limpiar el formulario y preparar el campo de legajo
-    if (formulario) formulario.reset();
-
-    if (inputLegajo) {
-        inputLegajo.value = "Cargando..."; // Cambiado a "Cargando" para mayor claridad
-        inputLegajo.disabled = true;       // Evita que el usuario escriba mientras carga
-    }
-
-    // 3. Seteamos el CUIT de vínculo inmediatamente
-    if (campoVinculo) {
-        campoVinculo.value = cuitEmpresaActiva;
-    }
-
-    // 4. Mostrar el modal de inmediato para mejorar la experiencia (UX)
-    const modalElement = document.getElementById('modalEmpleado');
-    const bsModal = bootstrap.Modal.getOrCreateInstance(modalElement);
-    bsModal.show();
+    document.getElementById('form-empleado').reset();
+    inputLegajo.value = "Cargando...";
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEmpleado')).show();
 
     try {
-        // 5. Petición al servidor (Apps Script)
-        // Agregamos un timestamp (t=...) para evitar que el navegador use una respuesta vieja (cache)
         const resp = await fetch(`${URL_WEB_APP}?action=getSiguienteLegajo&cuit=${cuitEmpresaActiva}&t=${Date.now()}`);
         const data = await resp.json();
-        
-        // 6. Validación de la respuesta para evitar el "undefined"
-        if (data && data.proximo !== undefined) {
-            inputLegajo.value = data.proximo;
-        } else {
-            console.error("El servidor no devolvió el campo 'proximo':", data);
-            inputLegajo.value = "Error";
-        }
-
-    } catch (e) {
-        console.error("Error crítico al obtener legajo:", e);
-        if (inputLegajo) inputLegajo.value = "Error de Red";
-    }
+        inputLegajo.value = data.proximo || "1001";
+    } catch (e) { inputLegajo.value = "1001"; }
 }
 
 document.getElementById('form-empleado')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = 'GUARDAR EMPLEADO';
+    
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
 
+    const conceptosTildados = [];
+        document.querySelectorAll('.check-concepto:checked').forEach(cb => {
+            conceptosTildados.push(cb.value);
+        });
+
     const body = {
         action: 'crearEmpleado',
-        cuitEmpresa: cuitEmpresaActiva, // Usamos la variable global que seteamos al entrar al detalle
+        cuitEmpresa: cuitEmpresaActiva,
         legajo: document.getElementById('empl-legajo').value,
         empleado: document.getElementById('empl-nombre').value,
         cuil: document.getElementById('empl-cuil').value,
         fechaIngreso: document.getElementById('empl-ingreso').value,
         tarea: document.getElementById('empl-tarea').value,
+        gremio: document.getElementById('empl-gremio').value, 
         sueldoBruto: document.getElementById('empl-bruto').value,
         diasTrabajados: document.getElementById('empl-dias').value,
         sueldoBasico: document.getElementById('empl-basico').value
     };
 
     try {
-        const resp = await fetch(URL_WEB_APP, { 
-            method: 'POST', 
-            body: JSON.stringify(body) 
-        });
-        const result = await resp.text();
-        
-        if(result.includes("OK")) {
-            alert("✅ Empleado guardado con éxito.");
+        const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(body) });
+        if((await resp.text()).includes("OK")) {
             bootstrap.Modal.getInstance(document.getElementById('modalEmpleado')).hide();
             e.target.reset();
-            // Recargamos la lista de empleados inmediatamente
             cargarEmpleadosEmpresa(cuitEmpresaActiva);
-        } else {
-            alert("Error al guardar: " + result);
         }
-        
-    } catch (error) {
-        alert("❌ Error de red al intentar guardar.");
-    } finally {
+    } catch (error) { alert("Error de red."); } finally {
         btn.disabled = false;
-        btn.innerHTML = 'GUARDAR EMPLEADO';
+        btn.innerHTML = originalText;
     }
 });
 
-/* --- GESTIÓN DE FORMULARIO EMPRESA --- */
+/* --- GESTIÓN DE EDICIÓN DE EMPLEADOS (NUEVO) --- */
+async function verFichaEmpleado(cuil) {
+    try {
+        const resp = await fetch(`${URL_WEB_APP}?tabla=empleados&t=${Date.now()}`);
+        const empleados = await resp.json();
+        const em = empleados.find(e => e[3].toString() === cuil.toString());
 
+        if (em) {
+            // 1. Cargamos los datos básicos en los inputs de edición
+            document.getElementById('edit-empl-legajo').value = em[0];
+            document.getElementById('edit-empl-nombre').value = em[1];
+            document.getElementById('edit-empl-id-original').value = em[3]; 
+            document.getElementById('edit-empl-bruto').value = em[6]; 
+            document.getElementById('edit-empl-dias').value = em[7]; 
+
+            // 2. Seteamos el Gremio (ajustá el ID si es diferente en tu modal de edición)
+            const selectGremio = document.getElementById('edit-empl-gremio');
+            if (selectGremio) {
+                selectGremio.value = em[5] || ""; // em[5] es la columna del Gremio
+            }
+
+            // 3. Procesamos los Conceptos guardados
+            // em[10] es donde guardaremos la lista de conceptos tildados
+            const conceptosGuardados = em[10] ? em[10].split(',') : [];
+            
+            // Llamamos a la función que dibuja los checks y les pone el 'checked'
+            // Pasamos el gremio actual y el array de lo que ya estaba tildado
+            actualizarChecksConceptos(em[5], conceptosGuardados);
+
+            // 4. Mostramos el modal
+            const modal = new bootstrap.Modal(document.getElementById('modalEditarEmpleado'));
+            modal.show();
+        }
+    } catch (error) {
+        console.error("Error detallado:", error);
+        alert("Error al cargar la ficha del empleado.");
+    }
+}
+
+document.getElementById('form-editar-empleado')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
+    const body = {
+        action: 'editarEmpleado',
+        cuil: document.getElementById('edit-empl-id-original').value,
+        nombre: document.getElementById('edit-empl-nombre').value,
+        dias: document.getElementById('edit-empl-dias').value,
+        bruto: document.getElementById('edit-empl-bruto').value
+    };
+
+    try {
+        const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(body) });
+        const resultado = await resp.text();
+
+        if (resultado.includes("OK")) {
+            const modalEl = document.getElementById('modalEditarEmpleado');
+            const modalInstancia = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstancia) modalInstancia.hide();
+
+            // RECARGAMOS SOLO LA TABLA DE EMPLEADOS (Mantiene la vista)
+            await cargarEmpleadosEmpresa(cuitEmpresaActiva); 
+            alert("✅ Datos del empleado actualizados.");
+        }
+    } catch (e) { alert("Error de red."); } finally { btn.disabled = false; }
+});
+
+/* --- GESTIÓN DE EMPRESA --- */
 async function prepararEdicionEmpresa(cuit) {
     try {
         const resp = await fetch(`${URL_WEB_APP}?action=leer&t=${Date.now()}`);
@@ -323,7 +395,7 @@ async function prepararEdicionEmpresa(cuit) {
             document.getElementById('tituloModalEmpresa').innerText = "EDITAR EMPRESA";
             bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEmpresa')).show();
         }
-    } catch (err) { console.error("Error al cargar edición:", err); }
+    } catch (err) { console.error(err); }
 }
 
 document.getElementById('form-empresa')?.addEventListener('submit', async (e) => {
@@ -348,14 +420,12 @@ document.getElementById('form-empresa')?.addEventListener('submit', async (e) =>
 
     try {
         const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(body) });
-        const resText = await resp.text();
-        
-        if (resText.includes("OK")) {
+        if ((await resp.text()).includes("OK")) {
             bootstrap.Modal.getInstance(document.getElementById('modalEmpresa')).hide();
             e.target.reset();
             editandoCuit = null;
             cargarEmpresas();
-        } else { alert("Error del servidor: " + resText); }
+        }
     } catch (error) { alert("Error de red."); } finally { 
         btn.disabled = false; 
         btn.innerText = "GUARDAR CAMBIOS";
@@ -363,12 +433,9 @@ document.getElementById('form-empresa')?.addEventListener('submit', async (e) =>
 });
 
 async function eliminarEmpresa(cuit) {
-    if (confirm(`¿Estás seguro de eliminar esta empresa y sus registros?`)) {
+    if (confirm(`¿Estás seguro de eliminar esta empresa?`)) {
         try {
-            await fetch(URL_WEB_APP, { 
-                method: 'POST', 
-                body: JSON.stringify({ action: 'eliminar', cuit }) 
-            });
+            await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify({ action: 'eliminar', cuit }) });
             setTimeout(cargarEmpresas, 1000);
         } catch (e) { alert("Error al eliminar."); }
     }
@@ -376,8 +443,113 @@ async function eliminarEmpresa(cuit) {
 
 function abrirModalEmpresa() {
     editandoCuit = null;
-    const form = document.getElementById('form-empresa');
-    if(form) form.reset();
+    document.getElementById('form-empresa').reset();
     document.getElementById('tituloModalEmpresa').innerText = "REGISTRAR NUEVA EMPRESA";
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEmpresa')).show();
 }
+
+// Función para el checkbox del encabezado (Tildar todos)
+function toggleTodosEmpleados(source) {
+    const checkboxes = document.querySelectorAll('.check-empleado');
+    checkboxes.forEach(cb => cb.checked = source.checked);
+}
+
+// Función para el botón amarillo "LIQUIDAR SUELDO"
+function abrirPanelLiquidacion() {
+    const checks = document.querySelectorAll('.check-empleado');
+    const headerCheck = document.getElementById('th-check-header');
+    const btnLiquidar = document.querySelector('button[onclick="abrirPanelLiquidacion()"]');
+
+    // 1. Si los checks están ocultos, los mostramos
+    if (headerCheck.classList.contains('d-none')) {
+        headerCheck.classList.remove('d-none');
+        checks.forEach(cb => cb.classList.remove('d-none'));
+        btnLiquidar.innerHTML = '<i class="bi bi-check-all me-1"></i> CONFIRMAR SELECCIÓN';
+        btnLiquidar.classList.replace('btn-warning', 'btn-success');
+        return;
+    }
+
+    // 2. Si ya están visibles, buscamos quiénes están marcados
+    const seleccionados = [];
+    document.querySelectorAll('.check-empleado:checked').forEach(cb => {
+        // Buscamos el nombre del empleado que está en la misma fila (primer <td>)
+        const nombre = cb.closest('tr').cells[0].innerText;
+        seleccionados.push({ cuil: cb.value, nombre: nombre });
+    });
+
+    if (seleccionados.length === 0) {
+        alert("Selecciona al menos un empleado para continuar.");
+        return;
+    }
+
+    // 3. Llenamos la lista del modal
+    const listaUI = document.getElementById('lista-empleados-confirmar');
+    listaUI.innerHTML = ''; // Limpiar
+    seleccionados.forEach(emp => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item bg-transparent text-white border-secondary small d-flex justify-content-between align-items-center';
+        li.innerHTML = `<span>${emp.nombre}</span> <small class="text-white-50">${emp.cuil}</small>`;
+        listaUI.appendChild(li);
+    });
+
+    document.getElementById('count-empleados-confirmar').innerText = `${seleccionados.length} Empleados`;
+
+    // 4. Mostramos el modal personalizado
+    const modalConfirm = new bootstrap.Modal(document.getElementById('modalConfirmarLiquidacion'));
+    modalConfirm.show();
+}
+function procesarLiquidacionFinal() {
+    // Cerramos el modal
+    const modalEl = document.getElementById('modalConfirmarLiquidacion');
+    bootstrap.Modal.getInstance(modalEl).hide();
+
+    // Aquí iría el inicio de la generación de recibos
+    console.log("Iniciando liquidación...");
+}
+
+function resetearVistaLiquidacion() {
+    const btnLiquidar = document.querySelector('button[onclick="abrirPanelLiquidacion()"]');
+    document.getElementById('th-check-header').classList.add('d-none');
+    document.querySelectorAll('.check-empleado').forEach(cb => {
+        cb.classList.add('d-none');
+        cb.checked = false;
+    });
+    btnLiquidar.innerHTML = '<i class="bi bi-calculator me-1"></i> LIQUIDAR SUELDO';
+    btnLiquidar.classList.replace('btn-success', 'btn-warning');
+}
+
+// Función para el check "TODOS"
+function toggleTodosEmpleados(source) {
+    const checkboxes = document.querySelectorAll('.check-empleado');
+    checkboxes.forEach(cb => cb.checked = source.checked);
+}
+// Definición de conceptos por gremio (puedes sumar más gremios aquí)
+const CONCEPTOS_POR_GREMIO = {
+    "Comercio": ["Sueldo Básico", "Antigüedad", "Ad. Manejo de Caja", "Jubilación", "Ley 19032", "O. Social", "Cuota Solidaria"],
+    "UOCRA": ["Sueldo Básico", "Asistencia Perfecta", "Fondo de Cese", "Jubilación", "O. Social"],
+    "Gastronómicos": ["Sueldo Básico", "Plus de Servicio", "Complemento de Comida", "Jubilación", "O. Social"]
+};
+
+// Función para mostrar los checks según el gremio elegido
+function actualizarChecksConceptos(gremioSeleccionado, seleccionadosPreviamente = []) {
+    const contenedor = document.getElementById('contenedor-conceptos-gremio');
+    const conceptos = CONCEPTOS_POR_GREMIO[gremioSeleccionado] || [];
+    
+    if (conceptos.length === 0) {
+        contenedor.innerHTML = '<span class="text-muted small">No hay conceptos cargados para este gremio.</span>';
+        return;
+    }
+
+    contenedor.innerHTML = conceptos.map(con => `
+        <div class="form-check">
+            <input class="form-check-input check-concepto" type="checkbox" value="${con}" id="chk-${con.replace(/\s+/g, '')}" 
+            ${seleccionadosPreviamente.includes(con) ? 'checked' : ''}>
+            <label class="form-check-label small" for="chk-${con.replace(/\s+/g, '')}">${con}</label>
+        </div>
+    `).join('');
+}
+
+// Evento para cuando cambias el Gremio en el modal
+document.getElementById('empl-gremio')?.addEventListener('change', (e) => {
+    actualizarChecksConceptos(e.target.value);
+});

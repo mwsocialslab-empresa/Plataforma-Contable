@@ -61,22 +61,22 @@
                     <h1 class="display-6 fw-bold">Gestión de Liquidaciones</h1>
                     <p class="text-muted">Bienvenido, Walter. Selecciona una opción para comenzar.</p>
                     <div class="row g-3 mt-2 justify-content-center">
-                        <div class="col-6 col-md-3">
-                            <div class="card border-0 shadow-sm p-4 hover-card cursor-pointer" onclick="mostrarSeccion('empresas')" style="cursor: pointer;">
+                        <div class="col-6 col-md-3" onclick="mostrarSeccion('empresas')" style="cursor: pointer;">
+                            <div class="card border-0 shadow-sm p-4 hover-card h-100">
                                 <i class="bi bi-building fs-1 text-primary"></i>
-                                <div class="fw-bold mt-2">EMPRESAS</div>
+                                <div class="fw-bold mt-2 text-uppercase">Empresas</div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <div class="card border-0 shadow-sm p-4 hover-card cursor-pointer" onclick="mostrarSeccion('gremios')" style="cursor: pointer;">
+                        <div class="col-6 col-md-3" onclick="mostrarSeccion('gremios')" style="cursor: pointer;">
+                            <div class="card border-0 shadow-sm p-4 hover-card h-100">
                                 <i class="bi bi-person-badge fs-1 text-warning"></i>
-                                <div class="fw-bold mt-2">GREMIOS</div>
+                                <div class="fw-bold mt-2 text-uppercase">Gremios</div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <div class="card border-0 shadow-sm p-4 hover-card cursor-pointer" onclick="mostrarSeccion('empleados')" style="cursor: pointer;">
+                        <div class="col-6 col-md-3" onclick="mostrarSeccion('empleados')" style="cursor: pointer;">
+                            <div class="card border-0 shadow-sm p-4 hover-card h-100">
                                 <i class="bi bi-people fs-1 text-success"></i>
-                                <div class="fw-bold mt-2">EMPLEADOS</div>
+                                <div class="fw-bold mt-2 text-uppercase">Empleados</div>
                             </div>
                         </div>
                     </div>
@@ -107,13 +107,13 @@
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                     <div class="card-header bg-white p-3"><h5 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2 text-warning"></i> LISTADO</h5></div>
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0 small" style="min-width: 1000px;">
+                        <table class="table table-hover align-middle mb-0 small">
                             <thead class="table-light text-uppercase">
                                 <tr>
-                                    <th>Empleador</th><th>CUIT</th><th>Dirección</th><th>Banco</th>
-                                    <th class="text-center">P. Depo</th><th class="text-center">Últ. Depo</th>
-                                    <th class="text-center">Abonado</th><th class="text-center">F. Pago</th>
-                                    <th>Base</th><th class="text-end pe-3">Acciones</th>
+                                    <th>Empleador</th>
+                                    <th>CUIT</th>
+                                    <th>Dirección</th>
+                                    <th class="text-end pe-3">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="tabla-empresas"></tbody>
@@ -122,25 +122,60 @@
                 </div>
             </section>
 
-            <section id="sec-detalle-empresa" class="seccion-app d-none">
-                <div id="cabecera-empresa-detalle" class="card border-0 shadow-sm rounded-4 bg-dark text-white p-4 mb-4"></div>
+           <section id="sec-detalle-empresa" class="seccion-app d-none">
+                <div id="cabecera-empresa-detalle" class="card border-0 shadow-sm rounded-4 bg-dark text-white p-4 mb-3">
+                </div>
+
+                <div class="card border-0 shadow-sm rounded-4 mb-4" style="background-color: #2c3e50; border-left: 5px solid #3498db !important;">
+                    <div class="card-header bg-transparent border-0 pt-3 pb-0">
+                        <h6 class="fw-bold text-info mb-0"><i class="bi bi-calendar-check me-2"></i> DATOS DE LIQUIDACIÓN MENSUAL</h6>
+                    </div>
+                    <div class="card-body">
+                        <form id="form-datos-mensuales">
+                            <div id="contenedor-inputs-mensuales" class="row g-2 text-white">
+                                </div>
+                            <div class="col-12 text-end mt-3">
+                                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-bold">
+                                    <i class="bi bi-save me-1"></i> ACTUALIZAR DATOS DEL MES
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                    <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-people-fill me-2"></i> EMPLEADOS</h5>
-                        <button class="btn btn-primary btn-sm rounded-pill px-3 fw-bold" onclick="abrirModalEmpleado()"><i class="bi bi-person-plus me-1"></i> AGREGAR</button>
+                    <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center border-bottom">
+                        <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-people-fill me-2"></i> EMPLEADOS</h5>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm" onclick="abrirPanelLiquidacion()">
+                                <i class="bi bi-calculator-fill me-1"></i> LIQUIDAR SUELDO
+                            </button>
+                            <button class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-sm" onclick="abrirModalEmpleado()">
+                                <i class="bi bi-person-plus me-1"></i> AGREGAR
+                            </button>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light small text-uppercase">
-                                <tr><th>Nombre</th><th>CUIL</th><th>Cargo</th><th class="text-end">Acciones</th></tr>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>CUIL</th>
+                                    <th>Cargo</th>
+                                    <th class="text-end pe-3">Acciones</th>
+                                </tr>
                             </thead>
                             <tbody id="tabla-empleados-cuerpo">
-                                <tr><td colspan="4" class="text-center py-4 text-muted small">No hay empleados registrados.</td></tr>
-                            </tbody>
+                                </tbody>
                         </table>
                     </div>
                 </div>
-                <button class="btn btn-link text-decoration-none text-muted mt-3 p-0" onclick="mostrarSeccion('empresas')"><i class="bi bi-arrow-left"></i> Volver al listado</button>
+                
+                <div class="mt-3">
+                    <button class="btn btn-link text-decoration-none text-muted p-0" onclick="mostrarSeccion('empresas')">
+                        <i class="bi bi-arrow-left"></i> Volver al listado de empresas
+                    </button>
+                </div>
             </section>
 
             <section id="sec-gremios" class="seccion-app d-none"><div class="alert alert-info">Próximamente: Gestión de Gremios</div></section>
@@ -174,67 +209,139 @@
             </div>
         </div>
     </div>
+
     <div class="modal fade" id="modalEmpleado" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header bg-primary text-white border-0">
-                <h5 class="modal-title fw-bold">REGISTRAR EMPLEADO</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <form id="form-empleado" class="row g-3">
-                    <input type="hidden" id="emp-cuit-vinculo">
-                    
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold text-uppercase">Legajo</label>
-                        <input type="text" id="empl-legajo" class="form-control border-0 bg-light fw-bold text-primary" readonly>
-                    </div>
-                    
-                    <div class="col-md-8">
-                        <label class="form-label small fw-bold text-uppercase">Nombre del Empleado</label>
-                        <input type="text" id="empl-nombre" class="form-control border-0 bg-light" required>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-uppercase">CUIL</label>
-                        <input type="text" id="empl-cuil" class="form-control border-0 bg-light" required>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-uppercase">Fecha de Ingreso</label>
-                        <input type="date" id="empl-ingreso" class="form-control border-0 bg-light" required>
-                    </div>
-                    
-                    <div class="col-md-12">
-                        <label class="form-label small fw-bold text-uppercase">Tarea / Cargo</label>
-                        <input type="text" id="empl-tarea" class="form-control border-0 bg-light" required>
-                    </div>
-                    
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold text-uppercase">Sueldo Bruto</label>
-                        <input type="number" id="empl-bruto" class="form-control border-0 bg-light" required>
-                    </div>
-                    
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold text-uppercase">Días Trabajados</label>
-                        <input type="number" id="empl-dias" class="form-control border-0 bg-light" required>
-                    </div>
-                    
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold text-uppercase">Sueldo Básico</label>
-                        <input type="number" id="empl-basico" class="form-control border-0 bg-light" required>
-                    </div>
-                    
-                    <div class="col-12 mt-4">
-                        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow-sm">
-                            GUARDAR EMPLEADO
-                        </button>
-                    </div>
-                </form>
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header bg-primary text-white border-0">
+                    <h5 class="modal-title fw-bold">REGISTRAR EMPLEADO</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-empleado" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-uppercase">Legajo</label>
+                            <input type="text" id="empl-legajo" class="form-control border-0 bg-light fw-bold text-primary" readonly>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold text-uppercase">Nombre del Empleado</label>
+                            <input type="text" id="empl-nombre" class="form-control border-0 bg-light" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-uppercase">CUIL</label>
+                            <input type="text" id="empl-cuil" class="form-control border-0 bg-light" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-uppercase">Fecha de Ingreso</label>
+                            <input type="date" id="empl-ingreso" class="form-control border-0 bg-light" required>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-uppercase text-primary">Gremio</label>
+                            <select id="empl-gremio" class="form-select border-0 bg-light fw-bold" required onchange="actualizarChecksConceptos(this.value)">
+                                <option value="" selected disabled>Seleccionar Gremio...</option>
+                                <option value="Sanidad">Sanidad</option>
+                                <option value="UOCRA">UOCRA</option>
+                                <option value="UTHGRA">UTHGRA</option>
+                                <option value="SUTEGBA">SUTEGBA</option>
+                                <option value="Comercio">Comercio</option>
+                                <option value="Otros">Otros / Fuera de Convenio</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="p-3 rounded-3 border" style="background-color: #f8f9fa;">
+                                <label class="d-block mb-2 small fw-bold text-secondary text-uppercase">Conceptos fijos para el recibo</label>
+                                <div id="contenedor-conceptos-gremio" class="d-flex flex-wrap gap-3">
+                                    <span class="text-muted small italic">Selecciona un gremio para ver los ítems...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-uppercase">Tarea / Cargo</label>
+                            <input type="text" id="empl-tarea" class="form-control border-0 bg-light" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-uppercase">Sueldo Bruto</label>
+                            <input type="number" id="empl-bruto" class="form-control border-0 bg-light" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-uppercase">Días Trabajados</label>
+                            <input type="number" id="empl-dias" class="form-control border-0 bg-light" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-uppercase">Sueldo Básico</label>
+                            <input type="number" id="empl-basico" class="form-control border-0 bg-light" required>
+                        </div>
+                        
+                        <div class="col-12 mt-4">
+                            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow-sm">GUARDAR EMPLEADO</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
+    <div class="modal fade" id="modalEditarEmpleado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white p-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i> EDITAR EMPLEADO</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <form id="form-editar-empleado" class="row g-3">
+                            <input type="hidden" id="edit-empl-id-original"> <div class="col-md-4">
+                                <label class="form-label small fw-bold">LEGAJO</label>
+                                <input type="text" id="edit-empl-legajo" class="form-control bg-light border-0" readonly>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold">NOMBRE COMPLETO</label>
+                                <input type="text" id="edit-empl-nombre" class="form-control border-0 bg-light" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-danger">DÍAS TRABAJADOS (A LIQUIDAR)</label>
+                                <input type="number" id="edit-empl-dias" class="form-control border-primary fw-bold" style="background-color: #fff3cd;" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">SUELDO BRUTO</label>
+                                <input type="number" id="edit-empl-bruto" class="form-control border-0 bg-light">
+                            </div>
+                            <div class="col-12 text-end mt-4">
+                                <button type="submit" class="btn btn-primary px-5 rounded-pill fw-bold">GUARDAR CAMBIOS</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal fade" id="modalConfirmarLiquidacion" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content bg-dark text-white border-0 shadow-lg">
+                    <div class="modal-header border-secondary p-4">
+                        <h5 class="modal-title fw-bold text-warning">
+                            <i class="bi bi-calculator-fill me-2"></i>CONFIRMAR LIQUIDACIÓN
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <p class="small text-white-50 mb-3">Vas a procesar los recibos de los siguientes empleados:</p>
+                        
+                        <ul id="lista-empleados-confirmar" class="list-group list-group-flush border rounded-3 overflow-auto" style="max-height: 200px; background: #1a1d20;">
+                            </ul>
+
+                        <div class="mt-4 p-3 rounded-3" style="background: #2b3035;">
+                            <small class="d-block text-warning fw-bold">TOTAL A LIQUIDAR:</small>
+                            <h4 id="count-empleados-confirmar" class="mb-0 fw-bold">0 Empleados</h4>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-4">
+                        <button type="button" class="btn btn-outline-light rounded-pill px-4" data-bs-dismiss="modal">VOLVER</button>
+                        <button type="button" class="btn btn-warning rounded-pill px-4 fw-bold" onclick="procesarLiquidacionFinal()">PROCESAR RECIBOS</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
     <footer class="text-center py-4 small text-muted">&copy; 2026 Sistema Sueldos | MWsocials</footer>
 
