@@ -5,6 +5,10 @@
 const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycby5TjVx8Ro_Y0RxnRz7AysrHrnL875blfOC3mXMc0fv4yAVfXfFmqMh5atSZ-pi70Gt1A/exec';
 let editandoCuit = null;
 let cuitEmpresaActiva = null;
+// Estas son las "memorias" que el navegador usará para no pedir datos a cada rato
+let cacheEmpresas = []; 
+let cacheEmpleados = []; 
+
 
 /* --- SEGURIDAD Y LOGIN --- */
 document.addEventListener("DOMContentLoaded", () => {
@@ -23,11 +27,16 @@ document.getElementById("form-login")?.addEventListener("submit", (e) => {
     }
 });
 
+// MODIFICA TU FUNCIÓN mostrarSistema
 function mostrarSistema() {
     document.getElementById("pantalla-login").classList.add("d-none");
     document.getElementById("app-sistema").classList.remove("d-none");
-    mostrarSeccion('inicio');
-    cargarEmpresas();
+    
+    mostrarSeccion('inicio'); // Mostramos la sección INMEDIATAMENTE
+
+    // Cargamos los datos de fondo sin bloquear la pantalla (sin await)
+    cargarEmpresas(); 
+    cargarTodosLosEmpleados(); 
 }
 
 function cerrarSesion() {
@@ -52,36 +61,61 @@ function mostrarSeccion(id) {
 /* --- GESTIÓN DE EMPRESAS (TABLA SIMPLIFICADA) --- */
 async function cargarEmpresas() {
     try {
+        // Usamos cache local para no pedir datos si ya los tenemos
+        if (cacheEmpresas.length > 0) return; 
+
         const resp = await fetch(`${URL_WEB_APP}?action=leer&t=${Date.now()}`);
-        const datos = await resp.json();
+        cacheEmpresas = await resp.json();
+        renderizarTablaEmpresas(); // Mueve la lógica de dibujo a otra función para limpiar el código
+    } catch (e) { console.error(e); }
+}
+function renderizarTablaEmpresas() {
+    const tabla = document.getElementById('tabla-empresas');
+    if (!tabla) return;
+    
+    tabla.innerHTML = '';
 
-        const tabla = document.getElementById('tabla-empresas');
-        if (!tabla) return;
-        
-        tabla.innerHTML = '';
-
-        if (Array.isArray(datos)) {
-            datos.forEach(emp => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="fw-bold text-primary cursor-pointer" onclick="verDetalleEmpresa('${emp[2]}')">${emp[0]}</td>
-                    <td>${emp[2]}</td>
-                    <td>${emp[1]}</td>
-                    <td class="text-end pe-3">
-                        <button class="btn btn-sm btn-outline-warning border-0" onclick="prepararEdicionEmpresa('${emp[2]}')">
-                            <i class="bi bi-pencil-square"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarEmpresa('${emp[2]}')">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                `;
-                tabla.appendChild(tr);
-            });
-        }
-    } catch (error) {
-        console.error("Error en cargarEmpresas:", error);
+    if (Array.isArray(cacheEmpresas)) {
+        cacheEmpresas.forEach(emp => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold text-primary cursor-pointer" onclick="verDetalleEmpresa('${emp[2]}')">${emp[0]}</td>
+                <td>${emp[2]}</td>
+                <td>${emp[1]}</td>
+                <td class="text-end pe-3">
+                    <button class="btn btn-sm btn-outline-warning border-0" onclick="prepararEdicionEmpresa('${emp[2]}')">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarEmpresa('${emp[2]}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tabla.appendChild(tr);
+        });
     }
+}
+
+async function cargarTodosLosEmpleados() {
+    try {
+        const resp = await fetch(`${URL_WEB_APP}?tabla=empleados&t=${Date.now()}`);
+        cacheEmpleados = await resp.json();
+        console.log("✅ Empleados cargados en memoria");
+    } catch (e) { 
+        console.error("Error al precargar empleados:", e); 
+    }
+}
+
+// SOLO cargar empleados cuando el usuario hace clic en una empresa
+async function cargarEmpleadosEmpresa(cuit) {
+    const cuerpo = document.getElementById('tabla-empleados-cuerpo');
+    cuerpo.innerHTML = '<tr><td colspan="4" class="text-center small">Cargando...</td></tr>';
+
+    // Pedimos SOLO los empleados de esa empresa o filtramos la cache si ya existe
+    const resp = await fetch(`${URL_WEB_APP}?tabla=empleados&cuit=${cuit}&t=${Date.now()}`);
+    const datos = await resp.json();
+    
+    // Dibujar la tabla...
 }
 
 /* --- ACTUALIZACIÓN DE DETALLE Y FORMULARIO MENSUAL --- */
