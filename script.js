@@ -499,12 +499,35 @@ function abrirPanelLiquidacion() {
     modalConfirm.show();
 }
 function procesarLiquidacionFinal() {
-    // Cerramos el modal
-    const modalEl = document.getElementById('modalConfirmarLiquidacion');
-    bootstrap.Modal.getInstance(modalEl).hide();
+    // 1. Cerramos el modal de confirmación
+    const modalConfirmEl = document.getElementById('modalConfirmarLiquidacion');
+    const modalConfirm = bootstrap.Modal.getInstance(modalConfirmEl);
+    if (modalConfirm) modalConfirm.hide();
 
-    // Aquí iría el inicio de la generación de recibos
-    console.log("Iniciando liquidación...");
+    // 2. Buscamos quiénes están marcados en la tabla
+    const seleccionados = [];
+    document.querySelectorAll('.check-empleado:checked').forEach(cb => {
+        // Buscamos los datos en la caché de empleados que ya tenemos en memoria
+        const datosEmp = cacheEmpleados.find(e => e[3].toString() === cb.value.toString());
+        if (datosEmp) {
+            seleccionados.push({
+                legajo: datosEmp[0],
+                nombre: datosEmp[1],
+                cuil: datosEmp[3],
+                basico: datosEmp[8],
+                conceptos: datosEmp[10] // Los conceptos guardados en la columna 10
+            });
+        }
+    });
+
+    if (seleccionados.length === 0) {
+        alert("No hay empleados seleccionados.");
+        return;
+    }
+
+    // 3. Mostramos la previa del primero (puedes iterar si son varios)
+    console.log("Liquidando para:", seleccionados[0].nombre);
+    previsualizarRecibo(seleccionados[0]);
 }
 
 function resetearVistaLiquidacion() {
@@ -553,3 +576,50 @@ function actualizarChecksConceptos(gremioSeleccionado, seleccionadosPreviamente 
 document.getElementById('empl-gremio')?.addEventListener('change', (e) => {
     actualizarChecksConceptos(e.target.value);
 });
+/* --- FUNCIONES DE LIQUIDACIÓN Y PREVIA --- */
+
+// 1. Esta función busca al empleado en la memoria y lanza la previa
+async function abrirPreviaIndividual(cuil) {
+    // CAMBIO: Usamos cacheEmpleados en lugar de listaEmpleados
+    const empleado = cacheEmpleados.find(e => e[3].toString() === cuil.toString());
+    if (empleado) {
+        // Adaptamos el objeto para la función de previsualización
+        const empObj = {
+            nombre: empleado[1],
+            cuil: empleado[3],
+            conceptos: empleado[10]
+        };
+        previsualizarRecibo(empObj);
+    } else {
+        alert("No se encontraron los datos del empleado en la memoria.");
+    }
+}
+
+// 2. Esta función procesa a todos los seleccionados con el checkbox
+function procesarLiquidacionFinal() {
+    const modalConfirmEl = document.getElementById('modalConfirmarLiquidacion');
+    const modalConfirm = bootstrap.Modal.getInstance(modalConfirmEl);
+    if (modalConfirm) modalConfirm.hide();
+
+    const seleccionados = [];
+    document.querySelectorAll('.check-empleado:checked').forEach(cb => {
+        const datosEmp = cacheEmpleados.find(e => e[3].toString() === cb.value.toString());
+        if (datosEmp) {
+            seleccionados.push({
+                legajo: datosEmp[0],
+                nombre: datosEmp[1],
+                cuil: datosEmp[3],
+                basico: datosEmp[8],
+                conceptos: datosEmp[10] || ""
+            });
+        }
+    });
+
+    if (seleccionados.length === 0) {
+        alert("Por favor, selecciona al menos un empleado.");
+        return;
+    }
+
+    // Por ahora, visualizamos el primero de la lista seleccionada
+    previsualizarRecibo(seleccionados[0]);
+}
