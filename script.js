@@ -654,6 +654,164 @@ function procesarLiquidacionFinal() {
         return;
     }
 
-    // Por ahora, visualizamos el primero de la lista seleccionada
-    previsualizarRecibo(seleccionados[0]);
+    // LLAMADA ÚNICA
+    previsualizarRecibos(seleccionados);
+
+    resetearVistaLiquidacion();
+}
+/* --- INTEGRACIÓN DE LIQUIDACIÓN Y VISTA PREVIA (NUEVO) --- */
+
+/* --- GENERACIÓN DE MÚLTIPLES RECIBOS EN UNA SOLA VISTA --- */
+
+function previsualizarRecibos(listaSeleccionados) {
+    // 1. Capturamos los datos generales de la empresa (se mantienen iguales para todos)
+    const datosEmpresa = {
+        nombre: document.getElementById('m-nombre').value,
+        cuit: document.getElementById('m-cuit').value,
+        direccion: document.getElementById('m-dir').value,
+        periodoAbonado: document.getElementById('m-p-abo').value,
+        fechaPago: document.getElementById('m-f-pago').value,
+        domicilioPago: document.getElementById('m-domicilio').value || document.getElementById('m-dir').value,
+        banco: document.getElementById('m-banco').value
+    };
+
+    const [year, month] = datosEmpresa.periodoAbonado.split('-');
+    const periodoFormateado = `${month}/${year}`;
+
+    // 2. Iniciamos el HTML con los estilos
+    let htmlCompleto = `
+        <html>
+        <head>
+            <title>Liquidación Masiva - ${datosEmpresa.nombre}</title>
+            <style>
+                @page { size: A4; margin: 10mm; }
+                body { font-family: Arial, sans-serif; font-size: 9pt; margin: 0; padding: 20px; background-color: #525659; }
+                
+                /* Contenedor para que en pantalla se vea como hojas separadas */
+                .recibo-pagina { 
+                    width: 190mm; 
+                    margin: 10px auto; 
+                    border: 1.5px solid #000; 
+                    padding: 5mm; 
+                    box-sizing: border-box; 
+                    background-color: #fff;
+                    page-break-after: always; /* ESTO ES CLAVE PARA LA IMPRESORA */
+                    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+                }
+
+                table { width: 100%; border-collapse: collapse; margin-bottom: 3mm; }
+                th, td { border: 1px solid #000; padding: 5px; text-align: left; }
+                .bg-gray { background-color: #e9e9e9 !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                .firma-box { width: 200px; border-top: 1px solid #000; text-align: center; margin-top: 30px; float: right; }
+                
+                .no-print { 
+                    position: sticky; top: 0; background: #333; padding: 10px; 
+                    text-align: center; z-index: 1000; width: 100%; margin-bottom: 20px;
+                }
+                .btn-print { padding: 10px 20px; cursor: pointer; background: #ffc107; border: none; font-weight: bold; }
+
+                @media print { 
+                    body { background-color: #fff; padding: 0; }
+                    .no-print { display: none; } 
+                    .recibo-pagina { margin: 0; border: 1.5px solid #000; box-shadow: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="no-print">
+                <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR TODOS LOS RECIBOS</button>
+                <button class="btn-print" style="background:#eee; margin-left:10px;" onclick="window.close()">CERRAR</button>
+            </div>
+    `;
+
+    // 3. Iteramos sobre cada empleado seleccionado para generar su hoja
+    listaSeleccionados.forEach(empleado => {
+        const listaConceptos = empleado.conceptos ? empleado.conceptos.split(',') : ["Sueldo Básico"];
+        let htmlConceptos = "";
+        
+        listaConceptos.forEach(c => {
+            htmlConceptos += `
+                <tr>
+                    <td>${c}</td>
+                    <td class="text-center">-</td>
+                    <td class="text-center">-</td>
+                    <td class="text-right">-</td>
+                    <td class="text-right">-</td>
+                    <td class="text-right">-</td>
+                </tr>`;
+        });
+
+        htmlCompleto += `
+            <div class="recibo-pagina">
+                <table>
+                    <tr>
+                        <td style="border:none; width:60%">
+                            <strong>${datosEmpresa.nombre}</strong><br>
+                            CUIT: ${datosEmpresa.cuit}<br>
+                            ${datosEmpresa.direccion}
+                        </td>
+                        <td style="border:none; text-align:right">
+                            <h2 style="margin:0">Recibo de Haberes</h2>
+                            <p>Legajo N°: ${empleado.legajo || '-'}</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <table>
+                    <tr class="bg-gray">
+                        <td>Nombre y Apellido</td>
+                        <td>CUIL</td>
+                        <td>Período Abonado</td>
+                    </tr>
+                    <tr>
+                        <td>${empleado.nombre}</td>
+                        <td>${empleado.cuil}</td>
+                        <td>${periodoFormateado}</td>
+                    </tr>
+                </table>
+
+                <table style="min-height: 350px; vertical-align: top;">
+                    <thead>
+                        <tr class="bg-gray">
+                            <th>Descripción</th>
+                            <th>Base</th>
+                            <th>%</th>
+                            <th>Remun.</th>
+                            <th>Desc.</th>
+                            <th>No Rem.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${htmlConceptos}
+                        <tr style="height: auto;"><td colspan="6" style="border:none;"></td></tr>
+                    </tbody>
+                </table>
+
+                <table>
+                    <tr>
+                        <td class="bg-gray">NETO A COBRAR</td>
+                        <td class="text-right" style="font-size: 12pt; font-weight: bold;">$ ${empleado.basico || '0,00'}</td>
+                    </tr>
+                </table>
+
+                <div style="margin-top: 20px;">
+                    <div style="float:left; font-size: 8pt; width: 60%;">
+                        Lugar de pago: ${datosEmpresa.domicilioPago}<br>
+                        Fecha de pago: ${datosEmpresa.fechaPago}
+                    </div>
+                    <div class="firma-box">Firma del Empleado</div>
+                    <div style="clear:both"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    htmlCompleto += `</body></html>`;
+
+    // 4. Abrimos la ventana una sola vez
+    const ventanaImpresion = window.open('', '_blank');
+    ventanaImpresion.document.write(htmlCompleto);
+    ventanaImpresion.document.close();
 }
