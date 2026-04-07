@@ -19,3 +19,11 @@
     white-space: nowrap; /* Evita que los textos largos se corten en dos líneas */
     padding: 12px 8px !important;
 }
+/* Forzar el cursor de mano en elementos clickeables */
+.hover-card, 
+.cursor-pointer, 
+button, 
+.nav-link, 
+[onclick] {
+    cursor: pointer !important;
+}
