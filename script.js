@@ -2,7 +2,7 @@
    🔹 SCRIPT.JS: GESTIÓN DE SUELDOS (VERSIÓN RESPETUOSA - REGLA DE ORO)
    ============================================================ */
 
-const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbw5g_LWKc6iZpAmYBy7Lk8UADJC_7-L8NlIqD37KI25G_KQAEunvctOor4yu36Iuy9x5g/exec';
+const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbw6iOEHiqyDlRWYajcX2eLD44wE1Ou6qKivBtEfJxijWlY-JCQb5DTLisFrJnz3fDqNSg/exec';
 let editandoCuit = null;
 let cuitEmpresaActiva = null;
 let cacheEmpresas = []; 
@@ -214,14 +214,35 @@ async function cargarEmpleadosEmpresa(cuit) {
 }
 
 async function eliminarEmpleado(cuil) {
-    if (!confirm("¿Estás seguro de eliminar permanentemente este empleado?")) return;
+    // 1. Confirmación de seguridad
+    if (!confirm(`¿Estás seguro de eliminar al empleado con CUIL ${cuil}?`)) return;
+
     try {
-        const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify({ action: 'eliminarEmpleado', cuil: cuil }) });
-        if ((await resp.text()).includes("OK")) {
-            alert("✅ Empleado eliminado.");
+        // 2. Definimos el cuerpo exacto para el POST
+        const datos = {
+            action: 'eliminarEmpleado',
+            cuil: cuil.toString() // Nos aseguramos que sea texto
+        };
+
+        const resp = await fetch(URL_WEB_APP, {
+            method: 'POST',
+            body: JSON.stringify(datos)
+        });
+
+        const resultado = await resp.text();
+
+        if (resultado.includes("OK")) {
+            alert("✅ Empleado eliminado correctamente.");
+            // 3. Recargamos solo la tabla de empleados de la empresa actual
             cargarEmpleadosEmpresa(cuitEmpresaActiva);
+        } else {
+            console.error("Respuesta del servidor:", resultado);
+            alert("El servidor no pudo eliminar al empleado.");
         }
-    } catch (e) { alert("Error al eliminar."); }
+    } catch (e) {
+        console.error("Error de red:", e);
+        alert("Error de conexión al intentar borrar.");
+    }
 }
 
 /* --- LIQUIDACIÓN E IMPRESIÓN --- */
@@ -259,26 +280,38 @@ function abrirPanelLiquidacion() {
 }
 
 function procesarLiquidacionFinal() {
-    const modal = bootstrap.Modal.getInstance(document.getElementById('modalConfirmarLiquidacion'));
+    // 1. Cerrar el modal de confirmación
+    const modalEl = document.getElementById('modalConfirmarLiquidacion');
+    const modal = bootstrap.Modal.getInstance(modalEl);
     if (modal) modal.hide();
 
     const seleccionados = [];
-    document.querySelectorAll('.check-empleado:checked').forEach(cb => {
+    // 2. Buscar todos los checks marcados
+    const checks = document.querySelectorAll('.check-empleado:checked');
+    
+    if (checks.length === 0) {
+        alert("No hay empleados seleccionados.");
+        return;
+    }
+
+    checks.forEach(cb => {
         const fila = cb.closest('tr');
-        // REGLA DE ORO: Captura directa desde la fila, no falla nunca
+        // Extraemos los datos de los atributos data que pusimos al cargar
         seleccionados.push({
-            legajo: fila.getAttribute('data-legajo'),
-            nombre: fila.getAttribute('data-nombre'),
-            cuil: fila.getAttribute('data-cuil'),
-            basico: fila.getAttribute('data-basico'),
-            conceptos: fila.getAttribute('data-conceptos')
+            legajo: fila.getAttribute('data-legajo') || "S/N",
+            nombre: fila.getAttribute('data-nombre') || "Sin Nombre",
+            cuil: fila.getAttribute('data-cuil') || cb.value,
+            basico: fila.getAttribute('data-basico') || "0",
+            conceptos: fila.getAttribute('data-conceptos') || "Sueldo Básico"
         });
     });
 
-    if (seleccionados.length > 0) {
-        previsualizarRecibos(seleccionados);
-        resetearVistaLiquidacion();
-    }
+    // 3. Disparar la previsualización
+    console.log("Liquidando a:", seleccionados); // Para debug
+    previsualizarRecibos(seleccionados);
+    
+    // 4. Limpiar la vista (quitar checks y volver botones a su estado original)
+    resetearVistaLiquidacion();
 }
 
 function previsualizarRecibos(listaSeleccionados) {
@@ -309,18 +342,100 @@ function previsualizarRecibos(listaSeleccionados) {
     <div class="no-print"><button onclick="window.print()" style="padding:10px 25px; background:#ffc107; border:none; font-weight:bold; cursor:pointer;">🖨️ IMPRIMIR RECIBOS (${listaSeleccionados.length})</button></div>`;
 
     listaSeleccionados.forEach(emp => {
-        const listaConceptos = (emp.conceptos || "Sueldo Básico").split(',').map(c => c.trim());
-        let filasConceptos = listaConceptos.map(c => `<tr><td>${c}</td><td>-</td><td>-</td><td style="text-align:right">${c === "Sueldo Básico" ? '$ ' + emp.basico : '-'}</td><td>-</td><td>-</td></tr>`).join('');
+    // 1. Convertimos los conceptos en un array limpio
+    const listaConceptos = (emp.conceptos || "Sueldo Básico").split(',').map(c => c.trim());
+    
+    // 2. Generamos las filas de la tabla
+    let filasConceptos = listaConceptos.map(c => {
+        // Normalizamos el texto para comparar (quita tildes y pasa a minúsculas)
+        const conceptoNormalizado = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const esBasico = conceptoNormalizado.includes("sueldo basico") || conceptoNormalizado.includes("basico");
 
-        htmlCompleto += `
-            <div class="recibo-pagina">
-                <table><tr><td style="border:none; width:65%"><h3>${datosEmpresa.nombre}</h3>CUIT: ${datosEmpresa.cuit}<br>${datosEmpresa.direccion}</td><td style="border:none; text-align:right"><h2>RECIBO DE HABERES</h2>Legajo N°: <strong>${emp.legajo}</strong></td></tr></table>
-                <table style="text-align:center"><tr class="bg-gray"><td>Apellido y Nombre</td><td>CUIL</td><td>Período Liquidado</td></tr><tr><td>${emp.nombre}</td><td>${emp.cuil}</td><td>${periodoFormateado}</td></tr></table>
-                <table style="min-height: 400px; vertical-align: top;"><thead><tr class="bg-gray"><th>Descripción</th><th>Base</th><th>%</th><th>Remunerativo</th><th>Descuentos</th><th>No Remun.</th></tr></thead><tbody>${filasConceptos}</tbody></table>
-                <table><tr><td class="bg-gray" style="text-align:right; width:70%">NETO A COBRAR</td><td style="text-align:right; font-size: 14pt; font-weight: bold;">$ ${emp.basico}</td></tr></table>
-                <div style="margin-top: 30px;"><div style="float:left; width: 55%; border:1px solid #ccc; padding:10px; font-size:9pt;"><strong>Lugar:</strong> ${datosEmpresa.domicilioPago}<br><strong>Fecha:</strong> ${datosEmpresa.fechaPago}</div><div style="float:right; width:220px; border-top:1px solid #000; text-align:center; margin-top:40px">Firma del Empleado</div><div style="clear:both"></div></div>
-            </div>`;
-    });
+        // Si es el básico, usamos el valor de emp.basico, si no, ponemos guion (por ahora)
+        const valorRemunerativo = esBasico ? `$ ${emp.basico}` : "-";
+
+        return `
+            <tr>
+                <td>${c}</td>
+                <td style="text-align:center">-</td>
+                <td style="text-align:center">-</td>
+                <td style="text-align:right">${valorRemunerativo}</td>
+                <td style="text-align:right">-</td>
+                <td style="text-align:right">-</td>
+            </tr>`;
+    }).join('');
+
+    // 3. Construimos el HTML del recibo
+    htmlCompleto += `
+        <div class="recibo-pagina">
+            <table style="border:none;">
+                <tr>
+                    <td style="border:none; width:65%">
+                        <h3 style="margin:0;">${datosEmpresa.nombre}</h3>
+                        <small>CUIT: ${datosEmpresa.cuit}</small><br>
+                        <small>${datosEmpresa.direccion}</small>
+                    </td>
+                    <td style="border:none; text-align:right; vertical-align:top;">
+                        <h2 style="margin:0; color:#444;">RECIBO DE HABERES</h2>
+                        Legajo N°: <strong>${emp.legajo || 'S/N'}</strong>
+                    </td>
+                </tr>
+            </table>
+
+            <table style="text-align:center; margin-top:10px;">
+                <tr class="bg-gray">
+                    <td style="width:50%;">Apellido y Nombre</td>
+                    <td style="width:25%;">CUIL</td>
+                    <td style="width:25%;">Período Liquidado</td>
+                </tr>
+                <tr>
+                    <td><strong>${emp.nombre}</strong></td>
+                    <td>${emp.cuil}</td>
+                    <td>${periodoFormateado}</td>
+                </tr>
+            </table>
+
+            <table style="min-height: 450px; vertical-align: top; margin-top:10px;">
+                <thead>
+                    <tr class="bg-gray">
+                        <th style="width:40%;">Descripción</th>
+                        <th style="text-align:center;">Base</th>
+                        <th style="text-align:center;">%</th>
+                        <th style="text-align:right;">Remunerativo</th>
+                        <th style="text-align:right;">Descuentos</th>
+                        <th style="text-align:right;">No Remun.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filasConceptos}
+                    <tr><td style="border:none; height:auto;"></td><td style="border:none;"></td><td style="border:none;"></td><td style="border:none;"></td><td style="border:none;"></td><td style="border:none;"></td></tr>
+                </tbody>
+            </table>
+
+            <table style="margin-top:-1px;">
+                <tr>
+                    <td class="bg-gray" style="text-align:right; width:75%; padding:10px;">NETO A COBRAR</td>
+                    <td style="text-align:right; font-size: 14pt; font-weight: bold; width:25%;">$ ${emp.basico}</td>
+                </tr>
+            </table>
+
+            <div style="margin-top: 30px;">
+                <div style="float:left; width: 55%; border:1px solid #ccc; padding:15px; font-size:9pt; border-radius:5px;">
+                    <strong>Lugar de pago:</strong> ${datosEmpresa.domicilioPago || datosEmpresa.direccion}<br>
+                    <strong>Fecha de pago:</strong> ${datosEmpresa.fechaPago || '-'}<br>
+                    <strong>Banco:</strong> ${datosEmpresa.banco}
+                </div>
+                <div style="float:right; width:220px; border-top:1px solid #000; text-align:center; margin-top:60px; font-size:9pt;">
+                    Firma del Empleado
+                </div>
+                <div style="clear:both"></div>
+            </div>
+            
+            <p style="font-size:7pt; color:#888; margin-top:20px; text-align:center;">
+                Original para el empleado - Sistema de Gestión de Sueldos
+            </p>
+        </div>`;
+});
 
     htmlCompleto += `</body></html>`;
     const win = window.open('', '_blank');
