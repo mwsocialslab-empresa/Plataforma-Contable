@@ -2,12 +2,18 @@
    🔹 SCRIPT.JS: GESTIÓN DE SUELDOS (VERSIÓN RESPETUOSA - REGLA DE ORO)
    ============================================================ */
 
-const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbw6iOEHiqyDlRWYajcX2eLD44wE1Ou6qKivBtEfJxijWlY-JCQb5DTLisFrJnz3fDqNSg/exec';
+const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbyBKmyWpBfl8oh6eBP9BJm3fiHHXEsaa7RwaAtux7JQFljqOP9pd8IGLlRwXtLikKI5_w/exec';
 let editandoCuit = null;
 let cuitEmpresaActiva = null;
 let cacheEmpresas = []; 
 let cacheEmpleados = []; 
 let cacheGremios = [];
+const ALICUOTAS_LEY = {
+    "Jubilación": 11,
+    "Ley 19032": 3,
+    "Obra Social": 3,
+    "Cuota Sindical": 2 // Este puede variar según el gremio
+};
 
 /* --- SEGURIDAD Y LOGIN --- */
 document.addEventListener("DOMContentLoaded", () => {
@@ -165,42 +171,45 @@ async function cargarEmpleadosEmpresa(cuit) {
     const tablaHeader = document.querySelector('#sec-detalle-empresa thead tr');
     if (!cuerpo) return;
 
+    // Control del header de checks para liquidación
     if (!document.getElementById('th-check-header')) {
         const thCheck = document.createElement('th');
         thCheck.id = 'th-check-header';
         thCheck.className = 'text-end d-none';
         thCheck.innerHTML = `<div class="d-flex align-items-center justify-content-end"><small class="me-2 text-warning">TODOS</small><input type="checkbox" id="check-todos-empleados" onclick="toggleTodosEmpleados(this)"></div>`;
         tablaHeader.appendChild(thCheck);
-    } else {
-        document.getElementById('th-check-header').classList.add('d-none');
     }
 
-    cuerpo.innerHTML = '<tr><td colspan="4" class="text-center">Cargando...</td></tr>';
+    cuerpo.innerHTML = '<tr><td colspan="4" class="text-center">Cargando empleados...</td></tr>';
 
     try {
         const resp = await fetch(`${URL_WEB_APP}?tabla=empleados&t=${Date.now()}`);
         const todos = await resp.json();
+        // Filtramos por el CUIT de la empresa activa
         const filtrados = todos.filter(em => em[9]?.toString().replace(/\D/g, '') === cuit.toString().replace(/\D/g, ''));
+        
         cuerpo.innerHTML = '';
 
         if (filtrados.length === 0) {
-            cuerpo.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay empleados registrados.</td></tr>';
+            cuerpo.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay empleados en esta empresa.</td></tr>';
             return;
         }
 
         filtrados.forEach(em => {
             const tr = document.createElement('tr');
-            // AQUÍ LA CLAVE: Guardamos los datos para que procesarLiquidacionFinal los lea sin errores
-            tr.setAttribute('data-legajo', em[0]);
-            tr.setAttribute('data-nombre', em[1]);
-            tr.setAttribute('data-cuil', em[3]);
-            tr.setAttribute('data-basico', em[8]);
-            tr.setAttribute('data-conceptos', em[10] || "Sueldo Básico");
+            
+            // MAPEO DE DATOS SEGUN TU EXCEL:
+            // em[0]=Legajo, em[1]=Nombre, em[3]=CUIL, em[8]=Basico, em[10]=Conceptos (Nombre|Tipo|Valor)
+            tr.setAttribute('data-legajo', em[0] || "S/N");
+            tr.setAttribute('data-nombre', em[1] || "Sin Nombre");
+            tr.setAttribute('data-cuil', em[3] || "");
+            tr.setAttribute('data-basico', em[8] || "0");
+            tr.setAttribute('data-conceptos', em[10] || ""); // AQUÍ ESTÁ EL PASO 4
 
             tr.innerHTML = `
                 <td class="fw-bold">${em[1]}</td>
                 <td>${em[3]}</td>
-                <td><span class="badge bg-light text-dark border">${em[4]}</span></td>
+                <td><span class="badge bg-light text-dark border">${em[4] || 'Sin Cargo'}</span></td>
                 <td class="text-end pe-3">
                     <div class="d-flex align-items-center justify-content-end gap-3">
                         <button class="btn btn-sm btn-outline-secondary border-0" onclick="verFichaEmpleado('${em[3]}')"><i class="bi bi-eye"></i></button>
@@ -210,7 +219,10 @@ async function cargarEmpleadosEmpresa(cuit) {
                 </td>`;
             cuerpo.appendChild(tr);
         });
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error("Error al cargar empleados:", e);
+        cuerpo.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error al cargar datos.</td></tr>';
+    }
 }
 
 async function eliminarEmpleado(cuil) {
@@ -314,133 +326,33 @@ function procesarLiquidacionFinal() {
     resetearVistaLiquidacion();
 }
 
-function previsualizarRecibos(listaSeleccionados) {
-    if (!listaSeleccionados || listaSeleccionados.length === 0) return;
+function calcularLineaConcepto(nombre, basico, diasTrabajados) {
+    const nombreNorm = nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    let remunerativo = 0;
+    let descuento = 0;
+    let porcentaje = "-";
 
-    const datosEmpresa = {
-        nombre: document.getElementById('m-nombre')?.value || "Empresa",
-        cuit: document.getElementById('m-cuit')?.value || "",
-        direccion: document.getElementById('m-dir')?.value || "",
-        periodoAbonado: document.getElementById('m-p-abo')?.value || "2026-01",
-        fechaPago: document.getElementById('m-f-pago')?.value || "",
-        domicilioPago: document.getElementById('m-domicilio')?.value || "",
-        banco: document.getElementById('m-banco')?.value || "-"
-    };
-
-    const periodoFormateado = `${datosEmpresa.periodoAbonado.split('-')[1]}/${datosEmpresa.periodoAbonado.split('-')[0]}`;
-
-    let htmlCompleto = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Recibos</title><style>
-        @page { size: A4; margin: 0; }
-        body { font-family: 'Courier New', monospace; font-size: 10pt; margin: 0; padding: 0; background-color: #f0f0f0; }
-        .no-print { position: fixed; top: 0; width: 100%; background: #222; color: white; padding: 15px; text-align: center; z-index: 9999; }
-        .recibo-pagina { width: 210mm; min-height: 297mm; margin: 80px auto 20px auto; padding: 15mm; box-sizing: border-box; background: #fff; border: 1px solid #ccc; page-break-after: always; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
-        th, td { border: 1px solid #000; padding: 6px; text-align: left; }
-        .bg-gray { background-color: #f2f2f2; font-weight: bold; }
-        @media print { body { background: none; } .no-print { display: none; } .recibo-pagina { margin: 0; border: none; } }
-    </style></head><body>
-    <div class="no-print"><button onclick="window.print()" style="padding:10px 25px; background:#ffc107; border:none; font-weight:bold; cursor:pointer;">🖨️ IMPRIMIR RECIBOS (${listaSeleccionados.length})</button></div>`;
-
-    listaSeleccionados.forEach(emp => {
-    // 1. Convertimos los conceptos en un array limpio
-    const listaConceptos = (emp.conceptos || "Sueldo Básico").split(',').map(c => c.trim());
+    // Lógica para Remunerativos
+    if (nombreNorm.includes("basico") || nombreNorm.includes("sueldo")) {
+        // Cálculo proporcional a días trabajados
+        remunerativo = (basico / 30) * diasTrabajados;
+    } 
     
-    // 2. Generamos las filas de la tabla
-    let filasConceptos = listaConceptos.map(c => {
-        // Normalizamos el texto para comparar (quita tildes y pasa a minúsculas)
-        const conceptoNormalizado = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const esBasico = conceptoNormalizado.includes("sueldo basico") || conceptoNormalizado.includes("basico");
+    // Lógica para Deducciones (si el nombre coincide con las alícuotas de ley)
+    // Se calcula sobre el total remunerativo (en este caso simplificado sobre el básico proporcional)
+    const subtotalRemun = (basico / 30) * diasTrabajados;
+    
+    if (ALICUOTAS_LEY[nombre]) {
+        porcentaje = `${ALICUOTAS_LEY[nombre]}%`;
+        descuento = subtotalRemun * (ALICUOTAS_LEY[nombre] / 100);
+    }
 
-        // Si es el básico, usamos el valor de emp.basico, si no, ponemos guion (por ahora)
-        const valorRemunerativo = esBasico ? `$ ${emp.basico}` : "-";
-
-        return `
-            <tr>
-                <td>${c}</td>
-                <td style="text-align:center">-</td>
-                <td style="text-align:center">-</td>
-                <td style="text-align:right">${valorRemunerativo}</td>
-                <td style="text-align:right">-</td>
-                <td style="text-align:right">-</td>
-            </tr>`;
-    }).join('');
-
-    // 3. Construimos el HTML del recibo
-    htmlCompleto += `
-        <div class="recibo-pagina">
-            <table style="border:none;">
-                <tr>
-                    <td style="border:none; width:65%">
-                        <h3 style="margin:0;">${datosEmpresa.nombre}</h3>
-                        <small>CUIT: ${datosEmpresa.cuit}</small><br>
-                        <small>${datosEmpresa.direccion}</small>
-                    </td>
-                    <td style="border:none; text-align:right; vertical-align:top;">
-                        <h2 style="margin:0; color:#444;">RECIBO DE HABERES</h2>
-                        Legajo N°: <strong>${emp.legajo || 'S/N'}</strong>
-                    </td>
-                </tr>
-            </table>
-
-            <table style="text-align:center; margin-top:10px;">
-                <tr class="bg-gray">
-                    <td style="width:50%;">Apellido y Nombre</td>
-                    <td style="width:25%;">CUIL</td>
-                    <td style="width:25%;">Período Liquidado</td>
-                </tr>
-                <tr>
-                    <td><strong>${emp.nombre}</strong></td>
-                    <td>${emp.cuil}</td>
-                    <td>${periodoFormateado}</td>
-                </tr>
-            </table>
-
-            <table style="min-height: 450px; vertical-align: top; margin-top:10px;">
-                <thead>
-                    <tr class="bg-gray">
-                        <th style="width:40%;">Descripción</th>
-                        <th style="text-align:center;">Base</th>
-                        <th style="text-align:center;">%</th>
-                        <th style="text-align:right;">Remunerativo</th>
-                        <th style="text-align:right;">Descuentos</th>
-                        <th style="text-align:right;">No Remun.</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filasConceptos}
-                    <tr><td style="border:none; height:auto;"></td><td style="border:none;"></td><td style="border:none;"></td><td style="border:none;"></td><td style="border:none;"></td><td style="border:none;"></td></tr>
-                </tbody>
-            </table>
-
-            <table style="margin-top:-1px;">
-                <tr>
-                    <td class="bg-gray" style="text-align:right; width:75%; padding:10px;">NETO A COBRAR</td>
-                    <td style="text-align:right; font-size: 14pt; font-weight: bold; width:25%;">$ ${emp.basico}</td>
-                </tr>
-            </table>
-
-            <div style="margin-top: 30px;">
-                <div style="float:left; width: 55%; border:1px solid #ccc; padding:15px; font-size:9pt; border-radius:5px;">
-                    <strong>Lugar de pago:</strong> ${datosEmpresa.domicilioPago || datosEmpresa.direccion}<br>
-                    <strong>Fecha de pago:</strong> ${datosEmpresa.fechaPago || '-'}<br>
-                    <strong>Banco:</strong> ${datosEmpresa.banco}
-                </div>
-                <div style="float:right; width:220px; border-top:1px solid #000; text-align:center; margin-top:60px; font-size:9pt;">
-                    Firma del Empleado
-                </div>
-                <div style="clear:both"></div>
-            </div>
-            
-            <p style="font-size:7pt; color:#888; margin-top:20px; text-align:center;">
-                Original para el empleado - Sistema de Gestión de Sueldos
-            </p>
-        </div>`;
-});
-
-    htmlCompleto += `</body></html>`;
-    const win = window.open('', '_blank');
-    win.document.write(htmlCompleto);
-    win.document.close();
+    return {
+        nombre,
+        remunerativo: remunerativo > 0 ? remunerativo.toFixed(2) : "-",
+        descuento: descuento > 0 ? descuento.toFixed(2) : "-",
+        porcentaje
+    };
 }
 
 function resetearVistaLiquidacion() {
@@ -462,7 +374,24 @@ async function cargarGremios() {
     try {
         const resp = await fetch(`${URL_WEB_APP}?tabla=gremios&t=${Date.now()}`);
         cacheGremios = await resp.json();
-        tabla.innerHTML = cacheGremios.map(g => `<tr><td class="fw-bold text-warning">${g[0]}</td><td>${g[1]}</td><td class="text-end pe-3"><button class="btn btn-sm btn-outline-warning border-0" onclick="prepararEdicionGremio('${g[0]}')"><i class="bi bi-pencil"></i></button></td></tr>`).join('');
+        
+        tabla.innerHTML = cacheGremios.map(g => {
+            // Limpiamos los conceptos para mostrar solo los nombres en la tabla
+            const conceptosLimpios = g[3] 
+                ? g[3].split(',').map(c => c.split('|')[0]).join(', ') 
+                : '-';
+
+            return `<tr>
+                <td class="fw-bold text-warning">${g[0]}</td>
+                <td>${g[1]}</td>
+                <td><small class="text-white-50">${conceptosLimpios}</small></td>
+                <td class="text-end pe-3">
+                    <button class="btn btn-sm btn-outline-warning border-0" onclick="prepararEdicionGremio('${g[0]}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
     } catch (e) { console.error(e); }
 }
 
@@ -486,4 +415,317 @@ async function verFichaEmpleado(cuil) {
     } catch (e) { alert("Error al cargar ficha."); }
 }
 
-// ... (El resto de tus listeners de formularios se mantienen igual)
+function actualizarChecksConceptos(gremioElegido) {
+    const contenedor = document.getElementById('contenedor-conceptos-gremio');
+    if (!contenedor) return;
+    
+    // Buscamos el gremio en el cache que ya tenés cargado
+    const gFound = cacheGremios.find(g => g[0] === gremioElegido);
+    
+    if (gFound && gFound[3]) { 
+        // gFound[3] tiene el string: "Sueldo|R|0,Jubilacion|D|11..."
+        const conceptosRaw = gFound[3].split(',');
+        
+        contenedor.innerHTML = conceptosRaw.map(c => {
+            const [nombre, tipo, valor] = c.split('|');
+            // Guardamos el valor completo (con |) en el 'value' del check para no perder la info
+            return `
+                <div class="form-check form-check-inline bg-white border rounded px-3 py-1 mb-2 shadow-sm">
+                    <input class="form-check-input check-concepto-fijo" type="checkbox" 
+                           value="${c.trim()}" id="chk-${nombre}" checked>
+                    <label class="form-check-label small fw-bold" for="chk-${nombre}">
+                        ${nombre} <span class="badge ${tipo === 'R' ? 'bg-success' : 'bg-danger'} pb-0" style="font-size:0.6rem">${tipo}</span>
+                    </label>
+                </div>`;
+        }).join('');
+    } else {
+        contenedor.innerHTML = `<span class="text-muted small italic">Este gremio no tiene conceptos definidos.</span>`;
+    }
+}
+let conceptosTemporalesGremio = [];
+
+function agregarConceptoALista() {
+    const nombre = document.getElementById('nuevo-concepto-nombre').value;
+    const tipo = document.getElementById('nuevo-concepto-tipo').value;
+    const valor = document.getElementById('nuevo-concepto-valor').value;
+
+    if (!nombre) return alert("Poné un nombre al concepto");
+
+    const nuevo = { nombre, tipo, valor: valor || 0 };
+    conceptosTemporalesGremio.push(nuevo);
+    renderizarConceptosTemporales();
+    
+    // Limpiar inputs
+    document.getElementById('nuevo-concepto-nombre').value = '';
+    document.getElementById('nuevo-concepto-valor').value = '';
+}
+
+function renderizarConceptosTemporales() {
+    const div = document.getElementById('lista-conceptos-dinamicos');
+    div.innerHTML = conceptosTemporalesGremio.map((c, index) => `
+        <span class="badge ${c.tipo === 'R' ? 'bg-success' : 'bg-danger'} me-1 mb-1">
+            ${c.nombre} (${c.valor}${c.tipo === 'D' ? '%' : ''}) 
+            <i class="bi bi-x-circle cursor-pointer" onclick="conceptosTemporalesGremio.splice(${index}, 1); renderizarConceptosTemporales();"></i>
+        </span>
+    `).join('');
+}/* ============================================================
+   🔹 GESTIÓN DE ENVÍO DE GREMIOS (NUEVO)
+   ============================================================ */
+
+document.getElementById('form-gremio').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // 1. Validar que haya al menos un concepto
+    if (conceptosTemporalesGremio.length === 0) {
+        alert("Por favor, agrega al menos un concepto (Sueldo, Jubilación, etc.)");
+        return;
+    }
+
+    // 2. Convertimos el array de objetos a un texto formateado para el Excel
+    // Formato: Nombre|Tipo|Valor (Ej: Jubilacion|D|11,Sueldo Basico|R|0)
+    const conceptosCodificados = conceptosTemporalesGremio
+        .map(c => `${c.nombre}|${c.tipo}|${c.valor}`)
+        .join(',');
+
+    const datos = {
+        action: 'crearGremio',
+        nombre: document.getElementById('gre-nombre').value,
+        actividad: document.getElementById('gre-actividad').value,
+        categorias: document.getElementById('gre-categorias').value,
+        conceptos: conceptosCodificados
+    };
+
+    try {
+        // Mostramos un mensaje de carga básico
+        const btn = e.target.querySelector('button[type="submit"]');
+        const originalText = btn.innerText;
+        btn.innerText = "GUARDANDO...";
+        btn.disabled = true;
+
+        const resp = await fetch(URL_WEB_APP, {
+            method: 'POST',
+            body: JSON.stringify(datos)
+        });
+        
+        const res = await resp.text();
+        
+        if (res.includes("OK")) {
+            alert("Gremio guardado correctamente en la base de datos.");
+            
+            // Cerrar modal
+            const modalEl = document.getElementById('modalGremio');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+
+            // Limpiar todo
+            e.target.reset();
+            conceptosTemporalesGremio = []; 
+            renderizarConceptosTemporales();
+            
+            // Refrescar la tabla de gremios para ver el nuevo
+            if (typeof cargarGremios === "function") cargarGremios();
+        } else {
+            alert("Hubo un problema: " + res);
+        }
+        
+        btn.innerText = originalText;
+        btn.disabled = false;
+
+    } catch (error) {
+        console.error("Error:", error);
+        alert("Error de conexión al guardar el gremio.");
+    }
+});
+function abrirModalGremio() {
+    // Resetear el formulario
+    document.getElementById('form-gremio').reset();
+    document.getElementById('tituloModalGremio').innerText = "NUEVO GREMIO";
+    
+    // REGLA DE ORO: Limpiar siempre la lista temporal al abrir
+    conceptosTemporalesGremio = [];
+    renderizarConceptosTemporales();
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalGremio'));
+    modal.show();
+}
+/* ============================================================
+   🔹 GESTIÓN DE ENVÍO DE EMPLEADOS (NUEVO)
+   ============================================================ */
+
+document.getElementById('form-empleado')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // 1. Capturamos los conceptos marcados (con su formato Nombre|Tipo|Valor)
+    const conceptosMarcados = Array.from(document.querySelectorAll('.check-concepto-fijo:checked'))
+        .map(cb => cb.value)
+        .join(',');
+
+    // 2. Armamos el objeto con todos los campos del modal de empleado
+    const datos = {
+        action: 'crearEmpleado',
+        legajo: document.getElementById('empl-legajo').value,
+        nombre: document.getElementById('empl-nombre').value,
+        cuil: document.getElementById('empl-cuil').value,
+        ingreso: document.getElementById('empl-ingreso').value,
+        gremio: document.getElementById('empl-gremio').value,
+        tarea: document.getElementById('empl-tarea').value,
+        bruto: document.getElementById('empl-bruto').value,
+        dias: document.getElementById('empl-dias').value,
+        basico: document.getElementById('empl-basico').value,
+        conceptos: conceptosMarcados, // Aquí pasamos la nueva estructura
+        cuitEmpresa: cuitEmpresaActiva // Variable global que ya tenés
+    };
+
+    try {
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.innerText = "GUARDANDO...";
+        btn.disabled = true;
+
+        const resp = await fetch(URL_WEB_APP, {
+            method: 'POST',
+            body: JSON.stringify(datos)
+        });
+
+        const res = await resp.text();
+
+        if (res.includes("OK")) {
+            alert("✅ Empleado guardado correctamente.");
+            bootstrap.Modal.getInstance(document.getElementById('modalEmpleado')).hide();
+            e.target.reset();
+            cargarEmpleadosEmpresa(cuitEmpresaActiva); // Refresca la tabla
+        } else {
+            alert("Error: " + res);
+        }
+        
+        btn.innerText = "GUARDAR EMPLEADO";
+        btn.disabled = false;
+
+    } catch (error) {
+        console.error("Error:", error);
+        alert("Error de conexión al guardar el empleado.");
+    }
+});
+function calcularLineaConceptoEstructurada(conceptoStr, basico, diasTrabajados) {
+    // conceptoStr viene como "Jubilacion|D|11" o "Sueldo|R|0"
+    const [nombre, tipo, valor] = conceptoStr.split('|');
+    const alicuota = parseFloat(valor) || 0;
+    
+    let remunerativo = 0;
+    let descuento = 0;
+    let porcentaje = alicuota > 0 ? `${alicuota}%` : "-";
+
+    // Proporcional del básico según días trabajados
+    const basicoProporcional = (basico / 30) * diasTrabajados;
+
+    if (tipo === 'R') {
+        // Si es remunerativo y tiene porcentaje (ej: Presentismo 8.33%)
+        if (alicuota > 0) {
+            remunerativo = basicoProporcional * (alicuota / 100);
+        } else {
+            // Si es el Sueldo Básico (valor 0 o vacío)
+            remunerativo = basicoProporcional;
+        }
+    } else if (tipo === 'D') {
+        // Si es deducción (Jubilación, Obra Social, etc.)
+        // Se calcula sobre el TOTAL Remunerativo (aquí simplificado sobre el proporcional)
+        descuento = basicoProporcional * (alicuota / 100);
+    }
+
+    return {
+        nombre,
+        tipo,
+        remunerativo: remunerativo > 0 ? remunerativo.toFixed(2) : "-",
+        descuento: descuento > 0 ? descuento.toFixed(2) : "-",
+        porcentaje
+    };
+}
+// Ejemplo de cómo iterar los conceptos dentro de la generación del recibo
+function generarFilasConceptos(empleadoSeleccionado) {
+    const conceptosRaw = empleadoSeleccionado.conceptos.split(','); // "Sueldo|R|0,Jubilacion|D|11"
+    const basico = parseFloat(empleadoSeleccionado.basico);
+    const dias = parseInt(empleadoSeleccionado.dias) || 30;
+
+    let htmlFilas = "";
+    let totalRemu = 0;
+    let totalDesc = 0;
+
+    conceptosRaw.forEach(cStr => {
+        const res = calcularLineaConceptoEstructurada(cStr, basico, dias);
+        
+        if (res.remunerativo !== "-") totalRemu += parseFloat(res.remunerativo);
+        if (res.descuento !== "-") totalDesc += parseFloat(res.descuento);
+
+        htmlFilas += `
+            <tr>
+                <td>${res.nombre}</td>
+                <td class="text-center">${res.porcentaje}</td>
+                <td class="text-end">${res.remunerativo}</td>
+                <td class="text-end">${res.descuento}</td>
+            </tr>`;
+    });
+
+    const neto = totalRemu - totalDesc;
+    // Aquí retornarías las filas y los totales para armar el PDF
+    return { htmlFilas, totalRemu, totalDesc, neto };
+}
+/* --- SOLUCIÓN ERROR CONSOLA --- */
+function prepararEdicionGremio(nombreGremio) {
+    const gremio = cacheGremios.find(g => g[0] === nombreGremio);
+    if (!gremio) return;
+
+    document.getElementById('tituloModalGremio').innerText = "EDITAR GREMIO";
+    document.getElementById('gre-nombre').value = gremio[0];
+    document.getElementById('gre-actividad').value = gremio[1] || "";
+    document.getElementById('gre-categorias').value = gremio[2] || "";
+
+    // Cargar los conceptos que ya tenía guardados para poder editarlos
+    conceptosTemporalesGremio = [];
+    if (gremio[3]) {
+        const partes = gremio[3].split(',');
+        partes.forEach(p => {
+            const [nombre, tipo, valor] = p.split('|');
+            conceptosTemporalesGremio.push({ nombre, tipo, valor });
+        });
+    }
+    
+    renderizarConceptosTemporales();
+    new bootstrap.Modal(document.getElementById('modalGremio')).show();
+}
+/* --- FUNCIÓN PARA ABRIR MODAL DE EMPLEADO --- */
+/* --- FUNCIÓN PARA ABRIR MODAL DE EMPLEADO --- */
+function abrirModalEmpleado() {
+    // 1. Limpiamos el formulario
+    const form = document.getElementById('form-empleado');
+    if (form) form.reset();
+
+    // 2. Cargamos la lista de gremios en el select
+    const selectGremio = document.getElementById('empl-gremio');
+    if (selectGremio) {
+        selectGremio.innerHTML = '<option value="">Seleccione un gremio...</option>';
+        cacheGremios.forEach(g => {
+            selectGremio.innerHTML += `<option value="${g[0]}">${g[0]}</option>`;
+        });
+    }
+
+    // 3. Limpiamos el contenedor de conceptos
+    const contenedorConceptos = document.getElementById('contenedor-conceptos-gremio');
+    if (contenedorConceptos) {
+        contenedorConceptos.innerHTML = '<span class="text-muted small italic">Seleccione un gremio para ver sus conceptos...</span>';
+    }
+
+    // 4. Mostramos el modal
+    const modalEl = document.getElementById('modalEmpleado');
+    if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+}
+
+/* --- ESCUCHADOR DE CAMBIO DE GREMIO (Para cargar conceptos automáticamente) --- */
+// Este bloque debe ir suelto al final del archivo para que siempre esté atento
+document.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 'empl-gremio') {
+        const gremioSeleccionado = e.target.value;
+        actualizarChecksConceptos(gremioSeleccionado);
+    }
+});

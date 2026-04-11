@@ -27,3 +27,19 @@ button,
 [onclick] {
     cursor: pointer !important;
 }
+<style>
+    .table-responsive {
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    .hover-card:hover {
+        transform: translateY(-5px);
+        transition: all 0.3s ease;
+        background-color: #fff9e6 !important;
+    }
+    /* Para que el recibo de impresión no salga con colores raros */
+    @media print {
+        .no-print { display: none !important; }
+        body { background: white !important; }
+    }
+</style>
