@@ -55,28 +55,21 @@
         </nav>
 
         <main class="container my-4">
-            
             <section id="sec-inicio" class="seccion-app">
                 <div class="p-5 mb-4 bg-white rounded-4 shadow-sm border text-center">
                     <h1 class="display-6 fw-bold">Gestión de Liquidaciones</h1>
                     <p class="text-muted">Bienvenido, Walter. Selecciona una opción para comenzar.</p>
                     <div class="row g-3 mt-2 justify-content-center">
-                        <div class="col-6 col-md-3" onclick="mostrarSeccion('empresas')" style="cursor: pointer;">
+                        <div class="col-6 col-md-4" onclick="mostrarSeccion('empresas')" style="cursor: pointer;">
                             <div class="card border-0 shadow-sm p-4 hover-card h-100">
                                 <i class="bi bi-building fs-1 text-primary"></i>
                                 <div class="fw-bold mt-2 text-uppercase">Empresas</div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3" onclick="mostrarSeccion('gremios')" style="cursor: pointer;">
+                        <div class="col-6 col-md-4" onclick="mostrarSeccion('gremios')" style="cursor: pointer;">
                             <div class="card border-0 shadow-sm p-4 hover-card h-100">
                                 <i class="bi bi-person-badge fs-1 text-warning"></i>
                                 <div class="fw-bold mt-2 text-uppercase">Gremios</div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3" onclick="mostrarSeccion('empleados')" style="cursor: pointer;">
-                            <div class="card border-0 shadow-sm p-4 hover-card h-100">
-                                <i class="bi bi-people fs-1 text-success"></i>
-                                <div class="fw-bold mt-2 text-uppercase">Empleados</div>
                             </div>
                         </div>
                     </div>
@@ -91,15 +84,15 @@
                                 <i class="bi bi-building fs-5"></i>
                             </div>
                             <div>
-                                <h6 class="mb-0 fw-bold">MIS EMPRESAS</h6>
+                                <h6 class="mb-0 fw-bold text-uppercase">Mis Empresas</h6>
                                 <small class="opacity-75">Listado de empleadores</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100 d-flex flex-row align-items-center hover-card cursor-pointer" onclick="abrirModalEmpresa()" style="cursor: pointer;">
+                        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100 d-flex flex-row align-items-center hover-card cursor-pointer" onclick="abrirModalEmpresa()">
                             <div class="rounded-circle bg-light text-warning d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px; border: 1px dashed orange;"><i class="bi bi-plus-lg fs-5"></i></div>
-                            <div><h6 class="mb-0 fw-bold">NUEVA EMPRESA</h6><small class="text-muted">Registrar empleador</small></div>
+                            <div><h6 class="mb-0 fw-bold text-uppercase">Nueva Empresa</h6><small class="text-muted">Registrar empleador</small></div>
                         </div>
                     </div>
                 </div>
@@ -127,14 +120,14 @@
 
                 <div class="card border-0 shadow-sm rounded-4 mb-4" style="background-color: #2c3e50; border-left: 5px solid #3498db !important;">
                     <div class="card-header bg-transparent border-0 pt-3 pb-0">
-                        <h6 class="fw-bold text-info mb-0"><i class="bi bi-calendar-check me-2"></i> DATOS DE LIQUIDACIÓN MENSUAL</h6>
+                        <h6 class="fw-bold text-info mb-0 text-uppercase"><i class="bi bi-calendar-check me-2"></i> Datos de Liquidación Mensual</h6>
                     </div>
                     <div class="card-body">
-                        <form id="form-datos-mensuales">
+                        <form id="form-datos-mensuales" onsubmit="event.preventDefault(); guardarCambiosEmpresa();">
                             <div id="contenedor-inputs-mensuales" class="row g-2 text-white"></div>
                             <div class="col-12 text-end mt-3">
                                 <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-bold">
-                                    <i class="bi bi-save me-1"></i> ACTUALIZAR DATOS DEL MES
+                                    <i class="bi bi-save me-1"></i> ACTUALIZAR DATOS DE EMPRESA
                                 </button>
                             </div>
                         </form>
@@ -143,9 +136,9 @@
 
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                     <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center border-bottom">
-                        <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-people-fill me-2"></i> EMPLEADOS</h5>
+                        <h5 class="mb-0 fw-bold text-secondary text-uppercase"><i class="bi bi-people-fill me-2"></i> Empleados</h5>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-warning fw-bold" onclick="abrirPanelLiquidacion()">
+                            <button class="btn btn-warning fw-bold btn-sm" onclick="habilitarSeleccionLiquidacion()">
                                 <i class="bi bi-calculator me-1"></i> LIQUIDAR SUELDO
                             </button>
                             <button class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-sm" onclick="abrirModalEmpleado()">
@@ -156,7 +149,7 @@
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light small text-uppercase">
-                                <tr>
+                                <tr id="header-tabla-empleados">
                                     <th>Nombre</th>
                                     <th>CUIL</th>
                                     <th>Cargo</th>
@@ -183,8 +176,8 @@
                                 <i class="bi bi-person-badge fs-5"></i>
                             </div>
                             <div>
-                                <h6 class="mb-0 fw-bold">GESTIÓN DE GREMIOS</h6>
-                                <small class="opacity-75">Configuración de escalas y conceptos [cite: 11]</small>
+                                <h6 class="mb-0 fw-bold text-uppercase">Gestión de Gremios</h6>
+                                <small class="opacity-75">Configuración de escalas y conceptos</small>
                             </div>
                         </div>
                     </div>
@@ -194,8 +187,8 @@
                                 <i class="bi bi-plus-lg fs-5"></i>
                             </div>
                             <div>
-                                <h6 class="mb-0 fw-bold">NUEVO GREMIO</h6>
-                                <small class="text-muted">Crear nueva actividad y conceptos [cite: 13, 15]</small>
+                                <h6 class="mb-0 fw-bold text-uppercase">Nuevo Gremio</h6>
+                                <small class="text-muted">Crear nueva actividad y conceptos</small>
                             </div>
                         </div>
                     </div>
@@ -218,36 +211,7 @@
                     </div>
                 </div>
             </section>
-
-            <section id="sec-empleados" class="seccion-app d-none"><div class="alert alert-info">Próximamente: Listado general de empleados</div></section>
-            <section id="sec-liquidaciones" class="seccion-app d-none"><div class="alert alert-info">Próximamente: Panel de Liquidaciones</div></section>
         </main>
-    </div>
-
-    <div class="modal fade" id="modalEmpresa" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header bg-dark text-white border-0">
-                    <h5 class="modal-title fw-bold" id="tituloModalEmpresa">EMPRESA</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <form id="form-empresa" class="row g-3">
-                        <div class="col-md-6"><label class="form-label small fw-bold">Razón Social</label><input type="text" id="emp-nombre" class="form-control border-0 bg-light" required></div>
-                        <div class="col-md-6"><label class="form-label small fw-bold">CUIT</label><input type="text" id="emp-cuit" class="form-control border-0 bg-light" required></div>
-                        <div class="col-md-6"><label class="form-label small fw-bold">Dirección</label><input type="text" id="emp-direccion" class="form-control border-0 bg-light" required></div>
-                        <div class="col-md-6"><label class="form-label small fw-bold">Domicilio</label><input type="text" id="emp-domicilio" class="form-control border-0 bg-light"></div>
-                        <div class="col-md-4"><label class="form-label small fw-bold">P. Depo</label><input type="month" id="emp-periodo" class="form-control border-0 bg-light"></div>
-                        <div class="col-md-4"><label class="form-label small fw-bold">F. Depo</label><input type="date" id="emp-fecha-depo" class="form-control border-0 bg-light"></div>
-                        <div class="col-md-4"><label class="form-label small fw-bold">P. Abonado</label><input type="month" id="emp-periodo-abonado" class="form-control border-0 bg-light"></div>
-                        <div class="col-md-4"><label class="form-label small fw-bold">F. Pago</label><input type="date" id="emp-fecha-pago" class="form-control border-0 bg-light"></div>
-                        <div class="col-md-4"><label class="form-label small fw-bold">Banco</label><input type="text" id="emp-banco" class="form-control border-0 bg-light"></div>
-                        <div class="col-md-4"><label class="form-label small fw-bold">Base Mensual</label><input type="text" id="emp-base" class="form-control border-0 bg-light"></div>
-                        <div class="col-12 mt-4"><button type="submit" class="btn btn-dark w-100 py-3 fw-bold rounded-pill shadow">GUARDAR CAMBIOS</button></div>
-                    </form>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="modal fade" id="modalEmpleado" tabindex="-1" aria-hidden="true">
@@ -260,50 +224,50 @@
                 <div class="modal-body p-4">
                     <form id="form-empleado" class="row g-3">
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold text-uppercase">Legajo</label>
-                            <input type="text" id="empl-legajo" class="form-control border-0 bg-light fw-bold text-primary" readonly>
+                            <label class="form-label small fw-bold">LEGAJO</label>
+                            <input type="text" id="empl-legajo" class="form-control border-0 bg-light fw-bold text-primary">
                         </div>
                         <div class="col-md-8">
-                            <label class="form-label small fw-bold text-uppercase">Nombre del Empleado</label>
+                            <label class="form-label small fw-bold">NOMBRE COMPLETO</label>
                             <input type="text" id="empl-nombre" class="form-control border-0 bg-light" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold text-uppercase">CUIL</label>
-                            <input type="text" id="empl-cuil" class="form-control border-0 bg-light" required>
+                            <label class="form-label small fw-bold">CUIL</label>
+                            <input type="text" id="empl-cuil" class="form-control border-0 bg-light" required placeholder="00-00000000-0">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold text-uppercase">Fecha de Ingreso</label>
+                            <label class="form-label small fw-bold">FECHA INGRESO</label>
                             <input type="date" id="empl-ingreso" class="form-control border-0 bg-light" required>
                         </div>
                         <div class="col-md-12">
-                            <label class="form-label small fw-bold text-uppercase text-primary">Gremio</label>
-                            <select id="empl-gremio" class="form-select border-0 bg-light fw-bold" required onchange="actualizarChecksConceptos(this.value)">
-                                <option value="" selected disabled>Seleccionar Gremio...</option>
+                            <label class="form-label small fw-bold text-primary">GREMIO / CONVENIO</label>
+                            <select id="empl-gremio" class="form-select border-0 bg-light fw-bold" required>
+                                <option value="" selected disabled>Cargando gremios...</option>
                             </select>
                         </div>
                         <div class="col-12">
-                            <div class="p-3 rounded-3 border" style="background-color: #f8f9fa;">
-                                <label class="d-block mb-2 small fw-bold text-secondary text-uppercase">Conceptos fijos para el recibo [cite: 10]</label>
-                                <div id="contenedor-conceptos-gremio" class="d-flex flex-wrap gap-3">
-                                    <span class="text-muted small italic">Selecciona un gremio para ver los ítems...</span>
+                            <div class="p-3 rounded-3 border bg-light">
+                                <label class="d-block mb-2 small fw-bold text-secondary">CONCEPTOS A LIQUIDAR</label>
+                                <div id="contenedor-conceptos-gremio" class="d-flex flex-wrap gap-2">
+                                    <span class="text-muted small italic">Seleccione un gremio para ver los ítems...</span>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-12">
-                            <label class="form-label small fw-bold text-uppercase">Tarea / Cargo [cite: 9]</label>
+                            <label class="form-label small fw-bold">TAREA / CARGO</label>
                             <input type="text" id="empl-tarea" class="form-control border-0 bg-light" required>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold text-uppercase">Sueldo Bruto [cite: 17]</label>
-                            <input type="number" id="empl-bruto" class="form-control border-0 bg-light" required>
+                            <label class="form-label small fw-bold">SUELDO BRUTO</label>
+                            <input type="number" id="empl-bruto" class="form-control border-0 bg-light" required value="0">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold text-uppercase">Días Trabajados [cite: 18]</label>
-                            <input type="number" id="empl-dias" class="form-control border-0 bg-light" required>
+                            <label class="form-label small fw-bold">DÍAS TRAB.</label>
+                            <input type="number" id="empl-dias" class="form-control border-0 bg-light" required value="30">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold text-uppercase">Sueldo Básico</label>
-                            <input type="number" id="empl-basico" class="form-control border-0 bg-light" required>
+                            <label class="form-label small fw-bold">BÁSICO</label>
+                            <input type="number" id="empl-basico" class="form-control border-0 bg-light" required value="0">
                         </div>
                         <div class="col-12 mt-4">
                             <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow-sm">GUARDAR EMPLEADO</button>
@@ -316,53 +280,100 @@
 
     <div class="modal fade" id="modalGremio" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content bg-dark text-white">
+            <div class="modal-content bg-dark text-white border-0 shadow-lg">
                 <div class="modal-header border-secondary">
-                    <h5 class="modal-title" id="tituloModalGremio">NUEVO GREMIO [cite: 11]</h5>
+                    <h5 class="modal-title fw-bold text-warning" id="tituloModalGremio">GESTIÓN DE GREMIO</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="form-gremio">
-                    <div class="modal-body">
+                    <div class="modal-body p-4">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="small fw-bold">Nombre del Gremio</label>
-                                <input type="text" id="gre-nombre" class="form-control bg-secondary text-white border-0" required placeholder="Ej: Comercio">
+                                <label class="small fw-bold">NOMBRE DEL GREMIO</label>
+                                <input type="text" id="gre-nombre" class="form-control bg-secondary text-white border-0" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="small fw-bold">Actividad</label>
-                                <input type="text" id="gre-actividad" class="form-control bg-secondary text-white border-0" placeholder="Ej: Administrativo [cite: 13]">
+                                <label class="small fw-bold">ACTIVIDAD</label>
+                                <input type="text" id="gre-actividad" class="form-control bg-secondary text-white border-0">
                             </div>
                             <div class="col-md-12">
-                                <label class="small fw-bold">Categorías (separadas por comas) [cite: 12]</label>
-                                <textarea id="gre-categorias" class="form-control bg-secondary text-white border-0" rows="2" placeholder="Maestranza A, Administrativo B..."></textarea>
+                                <label class="small fw-bold">CATEGORÍAS</label>
+                                <textarea id="gre-categorias" class="form-control bg-secondary text-white border-0" rows="2" placeholder="Separe categorías por comas..."></textarea>
                             </div>
                             
-                            <div class="col-md-12">
-                                <label class="small fw-bold text-warning">Conceptos de Liquidación (crea Omar)</label>
-                                <div id="lista-conceptos-dinamicos" class="bg-dark border border-secondary p-3 rounded-3 mb-2" style="min-height: 50px;">
-                                    <span class="text-muted small italic">Presioná el + para agregar conceptos...</span>
+                            <div class="col-md-12 mt-4">
+                                <label class="small fw-bold text-warning mb-2 d-block">CONCEPTOS DE LIQUIDACIÓN</label>
+                                <div id="lista-conceptos-dinamicos" class="bg-black bg-opacity-50 border border-secondary p-3 rounded-3 mb-3" style="min-height: 80px;">
+                                    <span class="text-muted small italic">No hay conceptos agregados aún.</span>
                                 </div>
                                 
-                                <div class="input-group input-group-sm">
-                                    <input type="text" id="nuevo-concepto-nombre" class="form-control bg-dark text-white border-secondary" placeholder="Ej: Presentismo">
-                                    
-                                    <select id="nuevo-concepto-tipo" class="form-select bg-dark text-white border-secondary">
-                                        <option value="R">Remunerativo</option>
-                                        <option value="D">Deducción</option>
-                                    </select>
-                                    
-                                    <input type="number" id="nuevo-concepto-valor" class="form-control bg-dark text-white border-secondary" style="max-width: 80px;" placeholder="%">
-                                    
-                                    <button class="btn btn-warning fw-bold" type="button" onclick="agregarConceptoALista()">+</button>
+                                <div class="row g-2 align-items-end p-3 rounded-3" style="background-color: #212529;">
+                                    <div class="col-md-5">
+                                        <label class="form-label small text-white-50">Nombre del Concepto</label>
+                                        <input type="text" id="nombre-concepto" class="form-control bg-dark text-white border-secondary">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-white-50">Tipo</label>
+                                        <select id="tipo-concepto" class="form-select bg-dark text-white border-secondary">
+                                            <option value="R">Remunerativo</option>
+                                            <option value="NR">No Remun.</option>
+                                            <option value="D">Descuento</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-white-50">% Valor</label>
+                                        <input type="number" id="porcentaje-concepto" class="form-control bg-dark text-white border-secondary" step="0.01">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-warning w-100 fw-bold" onclick="agregarConceptoLista()">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer border-secondary">
                         <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">CANCELAR</button>
-                        <button type="submit" class="btn btn-warning fw-bold">GUARDAR GREMIO</button>
+                        <button type="submit" class="btn btn-warning fw-bold px-4">GUARDAR GREMIO</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalLiquidacion" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-white border-0 shadow-lg">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title fw-bold text-info">PREVISUALIZACIÓN DE RECIBO</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div id="cabecera-recibo" class="p-4 bg-secondary text-white"></div>
+                    <div class="p-4">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover mb-0">
+                                <thead>
+                                    <tr class="text-warning small text-uppercase border-secondary">
+                                        <th>Concepto</th>
+                                        <th class="text-center">Porc.</th>
+                                        <th class="text-end">Haberes</th>
+                                        <th class="text-end">Descuentos</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="contenedor-conceptos" class="border-secondary"></tbody>
+                                <tfoot id="totales-recibo" class="fw-bold border-top border-secondary"></tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">CERRAR</button>
+                    <button type="button" class="btn btn-primary fw-bold" onclick="imprimirRecibo()">
+                        <i class="bi bi-printer me-1"></i> IMPRIMIR
+                    </button>
+                </div>
             </div>
         </div>
     </div>

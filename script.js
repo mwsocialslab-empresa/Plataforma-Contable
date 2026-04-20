@@ -2,7 +2,7 @@
    🔹 SCRIPT.JS: GESTIÓN DE SUELDOS (VERSIÓN RESPETUOSA - REGLA DE ORO)
    ============================================================ */
 
-const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbyBKmyWpBfl8oh6eBP9BJm3fiHHXEsaa7RwaAtux7JQFljqOP9pd8IGLlRwXtLikKI5_w/exec';
+const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbztKd6K8DRL3C0L_5_wEqjAC98bSIfQNh8ldGWt0cQwoIobNeSVaiGSYrlRCbmm4i58eg/exec';
 let editandoCuit = null;
 let cuitEmpresaActiva = null;
 let cacheEmpresas = []; 
@@ -65,9 +65,24 @@ function mostrarSeccion(id) {
 async function cargarEmpresas() {
     try {
         const resp = await fetch(`${URL_WEB_APP}?action=leer&t=${Date.now()}`);
-        cacheEmpresas = await resp.json();
+        
+        // 1. Obtenemos la respuesta como texto primero para ver qué hay adentro
+        const textoRespuesta = await resp.text();
+
+        // 2. Si el texto empieza con "Error", lo mostramos para saber qué falta en Google
+        if (textoRespuesta.startsWith("Error") || textoRespuesta.startsWith("ERROR")) {
+            console.error("Detalle del error en Google Apps Script:", textoRespuesta);
+            alert("Google dice: " + textoRespuesta);
+            return;
+        }
+
+        // 3. Si no hay error, intentamos convertir a JSON
+        cacheEmpresas = JSON.parse(textoRespuesta);
         renderizarTablaEmpresas();
-    } catch (e) { console.error(e); }
+
+    } catch (e) { 
+        console.error("Error de conexión o de formato:", e); 
+    }
 }
 
 function renderizarTablaEmpresas() {
@@ -108,12 +123,23 @@ async function verDetalleEmpresa(cuit) {
                     <button class="btn btn-outline-light btn-sm rounded-pill px-3 fw-bold" onclick="mostrarSeccion('empresas')"><i class="bi bi-arrow-left me-1"></i> VOLVER AL LISTADO</button>
                 </div>`;
 
-            const limpiarFechaParaInput = (fechaStr, esMes = false) => {
-                if (!fechaStr || fechaStr === '-' || fechaStr === '0') return '';
-                let fechaLimpia = fechaStr.includes('T') ? fechaStr.split('T')[0] : fechaStr;
-                if (esMes && fechaLimpia.length > 7) return fechaLimpia.substring(0, 7); 
-                return fechaLimpia;
-            };
+                const limpiarFechaParaInput = (fechaStr, esMes = false) => {
+                    // 1. Si es nulo, vacío o tiene caracteres de "vacío" del Excel, devolvemos nada
+                    if (!fechaStr || fechaStr === '-' || fechaStr === '0') return '';
+
+                    // 2. Convertimos a string por si Google nos manda un objeto Date
+                    let str = fechaStr.toString();
+
+                    // 3. Si viene con formato ISO (ej: 2024-04-14T00:00:00Z), nos quedamos con la parte de la fecha
+                    let fechaLimpia = str.includes('T') ? str.split('T')[0] : str;
+
+                    // 4. Si el input es de tipo "month" (YYYY-MM), recortamos a 7 caracteres
+                    if (esMes && fechaLimpia.length > 7) {
+                        return fechaLimpia.substring(0, 7);
+                    }
+                    
+                    return fechaLimpia;
+                };
             
             contenedorInputs.innerHTML = `
                 <div class="col-md-3">
@@ -171,7 +197,6 @@ async function cargarEmpleadosEmpresa(cuit) {
     const tablaHeader = document.querySelector('#sec-detalle-empresa thead tr');
     if (!cuerpo) return;
 
-    // Control del header de checks para liquidación
     if (!document.getElementById('th-check-header')) {
         const thCheck = document.createElement('th');
         thCheck.id = 'th-check-header';
@@ -185,8 +210,15 @@ async function cargarEmpleadosEmpresa(cuit) {
     try {
         const resp = await fetch(`${URL_WEB_APP}?tabla=empleados&t=${Date.now()}`);
         const todos = await resp.json();
-        // Filtramos por el CUIT de la empresa activa
-        const filtrados = todos.filter(em => em[9]?.toString().replace(/\D/g, '') === cuit.toString().replace(/\D/g, ''));
+        
+        // REGLA DE ORO: Guardamos en cache para la liquidación
+        cacheEmpleados = todos; 
+
+        // Filtramos: em[9] es el CUIT de la empresa empleadora
+        const filtrados = todos.filter(em => {
+            if (!em[9]) return false;
+            return em[9].toString().replace(/\D/g, '') === cuit.toString().replace(/\D/g, '');
+        });
         
         cuerpo.innerHTML = '';
 
@@ -198,23 +230,27 @@ async function cargarEmpleadosEmpresa(cuit) {
         filtrados.forEach(em => {
             const tr = document.createElement('tr');
             
-            // MAPEO DE DATOS SEGUN TU EXCEL:
-            // em[0]=Legajo, em[1]=Nombre, em[3]=CUIL, em[8]=Basico, em[10]=Conceptos (Nombre|Tipo|Valor)
-            tr.setAttribute('data-legajo', em[0] || "S/N");
-            tr.setAttribute('data-nombre', em[1] || "Sin Nombre");
-            tr.setAttribute('data-cuil', em[3] || "");
-            tr.setAttribute('data-basico', em[8] || "0");
-            tr.setAttribute('data-conceptos', em[10] || ""); // AQUÍ ESTÁ EL PASO 4
+            // CORRECCIÓN DE ÍNDICES SEGÚN TU CONSOLA:
+            // em[1] = Nombre | em[2] = CUIL real
+            const nombre = em[1] || "Sin Nombre";
+            const cuilReal = em[2] ? em[2].toString().trim() : "S/C";
+            const cargo = em[4] || 'Sin Cargo';
+
+            tr.setAttribute('data-cuil', cuilReal);
 
             tr.innerHTML = `
-                <td class="fw-bold">${em[1]}</td>
-                <td>${em[3]}</td>
-                <td><span class="badge bg-light text-dark border">${em[4] || 'Sin Cargo'}</span></td>
+                <td class="fw-bold">${nombre}</td>
+                <td>${cuilReal}</td>
+                <td><span class="badge bg-light text-dark border">${cargo}</span></td>
                 <td class="text-end pe-3">
                     <div class="d-flex align-items-center justify-content-end gap-3">
-                        <button class="btn btn-sm btn-outline-secondary border-0" onclick="verFichaEmpleado('${em[3]}')"><i class="bi bi-eye"></i></button>
-                        <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarEmpleado('${em[3]}')"><i class="bi bi-trash"></i></button>
-                        <input type="checkbox" class="check-empleado d-none" value="${em[3]}">
+                        <button class="btn btn-sm btn-outline-secondary border-0" onclick="verFichaEmpleado('${cuilReal}')"><i class="bi bi-eye"></i></button>
+                        <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarEmpleado('${cuilReal}')"><i class="bi bi-trash"></i></button>
+                        
+                        <input type="checkbox" 
+                               class="form-check-input check-empleado d-none" 
+                               data-cuil="${cuilReal}" 
+                               value="${cuilReal}">
                     </div>
                 </td>`;
             cuerpo.appendChild(tr);
@@ -225,70 +261,96 @@ async function cargarEmpleadosEmpresa(cuit) {
     }
 }
 
-async function eliminarEmpleado(cuil) {
-    // 1. Confirmación de seguridad
-    if (!confirm(`¿Estás seguro de eliminar al empleado con CUIL ${cuil}?`)) return;
-
-    try {
-        // 2. Definimos el cuerpo exacto para el POST
-        const datos = {
-            action: 'eliminarEmpleado',
-            cuil: cuil.toString() // Nos aseguramos que sea texto
-        };
-
-        const resp = await fetch(URL_WEB_APP, {
-            method: 'POST',
-            body: JSON.stringify(datos)
-        });
-
-        const resultado = await resp.text();
-
-        if (resultado.includes("OK")) {
-            alert("✅ Empleado eliminado correctamente.");
-            // 3. Recargamos solo la tabla de empleados de la empresa actual
-            cargarEmpleadosEmpresa(cuitEmpresaActiva);
-        } else {
-            console.error("Respuesta del servidor:", resultado);
-            alert("El servidor no pudo eliminar al empleado.");
-        }
-    } catch (e) {
-        console.error("Error de red:", e);
-        alert("Error de conexión al intentar borrar.");
+function procesarEliminarEmpleado(ss, cuil) {
+  const sheetEmp = ss.getSheetByName(NOMBRE_HOJA_EMPLEADOS);
+  if (!sheetEmp) return textResponse("ERROR_HOJA_NO_EXISTE");
+  
+  const rowsEmp = sheetEmp.getDataRange().getValues();
+  // Limpiamos el CUIL que viene del buscador
+  const cuilBusca = cuil.toString().replace(/\D/g, '').trim();
+  
+  for (let i = 1; i < rowsEmp.length; i++) {
+    // Limpiamos también el CUIL que está en la celda del Excel antes de comparar
+    const cuilCelda = rowsEmp[i][2].toString().replace(/\D/g, '').trim(); 
+    
+    if (cuilCelda === cuilBusca) {
+      sheetEmp.deleteRow(i + 1);
+      return textResponse("OK"); // Importante que devuelva OK para que el JS sepa que terminó
     }
+  }
+  return textResponse("ERROR_NO_ENCONTRADO: Busqué " + cuilBusca);
 }
-
 /* --- LIQUIDACIÓN E IMPRESIÓN --- */
 function abrirPanelLiquidacion() {
-    const checks = document.querySelectorAll('.check-empleado');
-    const headerCheck = document.getElementById('th-check-header');
-    const btnLiquidar = document.querySelector('button[onclick="abrirPanelLiquidacion()"]');
-
-    if (headerCheck.classList.contains('d-none')) {
-        headerCheck.classList.remove('d-none');
-        checks.forEach(cb => cb.classList.remove('d-none'));
-        btnLiquidar.innerHTML = '<i class="bi bi-check-all me-1"></i> CONFIRMAR SELECCIÓN';
-        btnLiquidar.classList.replace('btn-warning', 'btn-success');
+    const seleccionados = [];
+    
+    // Capturamos los checks marcados
+    const checks = document.querySelectorAll('.check-empleado:checked');
+    
+    if (checks.length === 0) {
+        alert("Por favor, seleccioná al menos un empleado de la lista.");
         return;
     }
 
-    const seleccionados = [];
-    document.querySelectorAll('.check-empleado:checked').forEach(cb => {
-        const fila = cb.closest('tr');
-        seleccionados.push({ nombre: fila.getAttribute('data-nombre'), cuil: cb.value });
+    checks.forEach(cb => {
+        const cuilBusca = cb.getAttribute('data-cuil').toString().replace(/\D/g, '');
+        const emp = cacheEmpleados.find(e => e[2].toString().replace(/\D/g, '') === cuilBusca);
+        if (emp) seleccionados.push(emp);
     });
 
-    if (seleccionados.length === 0) return alert("Selecciona al menos un empleado.");
+    const contenedor = document.getElementById('contenedor-conceptos');
+    const cabecera = document.getElementById('cabecera-recibo');
+    contenedor.innerHTML = "";
+    cabecera.innerHTML = `<h6 class="mb-0 fw-bold text-center text-uppercase p-2">Previsualización de ${seleccionados.length} Recibo(s)</h6>`;
 
-    const listaUI = document.getElementById('lista-empleados-confirmar');
-    listaUI.innerHTML = '';
-    seleccionados.forEach(emp => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item bg-transparent text-white border-secondary small d-flex justify-content-between align-items-center';
-        li.innerHTML = `<span>${emp.nombre}</span> <small class="text-white-50">${emp.cuil}</small>`;
-        listaUI.appendChild(li);
+    seleccionados.forEach((emp) => {
+        const bruto = parseFloat(emp[6]) || 0;
+        let conceptos = [];
+        try { conceptos = emp[10] ? JSON.parse(emp[10]) : []; } catch (e) { conceptos = []; }
+
+        let totalHaberes = bruto;
+        let totalDescuentos = 0;
+
+        let filasConceptos = `
+            <tr class="table-dark"><td colspan="4" class="fw-bold small">EMPLEADO: ${emp[1]}</td></tr>
+            <tr>
+                <td>SUELDO BÁSICO</td>
+                <td class="text-center">-</td>
+                <td class="text-end">${bruto.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                <td class="text-end">0,00</td>
+            </tr>`;
+
+        conceptos.forEach(c => {
+            const valorCalculado = bruto * (parseFloat(c.valor) / 100);
+            // Normalizamos el tipo: 'R', 'Remunerativo' o 'Haberes'
+            const esHaber = c.tipo.startsWith('R') || c.tipo.toLowerCase().includes('remunerativo') || c.tipo.toLowerCase().includes('haber');
+            
+            if (esHaber) {
+                totalHaberes += valorCalculado;
+                filasConceptos += `<tr><td>${c.nombre}</td><td class="text-center">${c.valor}%</td><td class="text-end">${valorCalculado.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td><td class="text-end">0,00</td></tr>`;
+            } else {
+                totalDescuentos += valorCalculado;
+                filasConceptos += `<tr><td>${c.nombre}</td><td class="text-center">${c.valor}%</td><td class="text-end">0,00</td><td class="text-end">${valorCalculado.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td></tr>`;
+            }
+        });
+
+        const neto = totalHaberes - totalDescuentos;
+        filasConceptos += `
+            <tr class="fw-bold border-top">
+                <td colspan="2" class="text-end small">TOTALES:</td>
+                <td class="text-end text-success">${totalHaberes.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                <td class="text-end text-danger">${totalDescuentos.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+            </tr>
+            <tr class="bg-warning text-dark fw-bold">
+                <td colspan="3" class="text-end">NETO A COBRAR:</td>
+                <td class="text-end">$ ${neto.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+            </tr>
+            <tr style="height: 20px;"><td colspan="4"></td></tr>`;
+
+        contenedor.innerHTML += filasConceptos;
     });
-    document.getElementById('count-empleados-confirmar').innerText = `${seleccionados.length} Empleados`;
-    new bootstrap.Modal(document.getElementById('modalConfirmarLiquidacion')).show();
+
+    new bootstrap.Modal(document.getElementById('modalLiquidacion')).show();
 }
 
 function procesarLiquidacionFinal() {
@@ -693,32 +755,25 @@ function prepararEdicionGremio(nombreGremio) {
 }
 /* --- FUNCIÓN PARA ABRIR MODAL DE EMPLEADO --- */
 /* --- FUNCIÓN PARA ABRIR MODAL DE EMPLEADO --- */
-function abrirModalEmpleado() {
-    // 1. Limpiamos el formulario
-    const form = document.getElementById('form-empleado');
-    if (form) form.reset();
-
-    // 2. Cargamos la lista de gremios en el select
+async function abrirModalEmpleado() {
     const selectGremio = document.getElementById('empl-gremio');
-    if (selectGremio) {
-        selectGremio.innerHTML = '<option value="">Seleccione un gremio...</option>';
-        cacheGremios.forEach(g => {
-            selectGremio.innerHTML += `<option value="${g[0]}">${g[0]}</option>`;
-        });
+    if (!selectGremio) return;
+
+    // REGLA DE ORO: Si el cache está vacío, los buscamos antes de abrir
+    if (cacheGremios.length === 0) {
+        const resp = await fetch(`${URL_WEB_APP}?tabla=gremios&t=${Date.now()}`);
+        cacheGremios = await resp.json();
     }
 
-    // 3. Limpiamos el contenedor de conceptos
-    const contenedorConceptos = document.getElementById('contenedor-conceptos-gremio');
-    if (contenedorConceptos) {
-        contenedorConceptos.innerHTML = '<span class="text-muted small italic">Seleccione un gremio para ver sus conceptos...</span>';
-    }
+    selectGremio.innerHTML = '<option value="">Seleccione un gremio...</option>';
+    cacheGremios.forEach(g => {
+        let opt = document.createElement('option');
+        opt.value = g[0];
+        opt.textContent = g[0];
+        selectGremio.appendChild(opt);
+    });
 
-    // 4. Mostramos el modal
-    const modalEl = document.getElementById('modalEmpleado');
-    if (modalEl) {
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-    }
+    new bootstrap.Modal(document.getElementById('modalEmpleado')).show();
 }
 
 /* --- ESCUCHADOR DE CAMBIO DE GREMIO (Para cargar conceptos automáticamente) --- */
@@ -729,3 +784,298 @@ document.addEventListener('change', (e) => {
         actualizarChecksConceptos(gremioSeleccionado);
     }
 });
+function agregarConceptoLista() {
+    const nombre = document.getElementById('nombre-concepto').value;
+    const tipo = document.getElementById('tipo-concepto').value;
+    const porcentaje = document.getElementById('porcentaje-concepto').value;
+
+    if (!nombre || !porcentaje) {
+        alert("Por favor, completá el nombre y el porcentaje");
+        return;
+    }
+
+    // Aquí lo agregás a tu array o a la lista visual
+    const nuevoConcepto = {
+        nombre: nombre,
+        tipo: tipo,
+        valor: porcentaje // Guardamos el número (ej: 11)
+    };
+
+    console.log("Concepto agregado:", nuevoConcepto);
+
+    // Limpiar campos para el siguiente
+    document.getElementById('nombre-concepto').value = '';
+    document.getElementById('porcentaje-concepto').value = '';
+}
+async function guardarCambiosEmpresa() {
+    const datos = {
+        action: 'editar', // Especificamos la acción
+        empleador: document.getElementById('m-nombre').value,
+        cuit: document.getElementById('m-cuit').value,
+        banco: document.getElementById('m-banco').value,
+        base: document.getElementById('m-base').value,
+        direccion: document.getElementById('m-dir').value,
+        periodo: document.getElementById('m-p-depo').value,
+        fechaUltimoDepo: document.getElementById('m-f-depo').value,
+        periodoAbonado: document.getElementById('m-p-abo').value,
+        fechaPago: document.getElementById('m-f-pago').value,
+        domicilio: document.getElementById('m-domicilio').value
+    };
+
+    try {
+        const resp = await fetch(URL_WEB_APP, {
+            method: 'POST',
+            body: JSON.stringify(datos)
+        });
+        const res = await resp.text();
+        if (res.includes("OK")) {
+            alert("✅ Empresa actualizada");
+            cargarEmpresas();
+        }
+    } catch (e) { console.error(e); }
+}
+function habilitarSeleccionLiquidacion() {
+    // 1. Mostramos la columna del encabezado (el check "Todos")
+    const th = document.getElementById('th-check-header');
+    if (th) th.classList.remove('d-none');
+
+    // 2. Mostramos todos los checks de los empleados
+    const checks = document.querySelectorAll('.check-empleado');
+    checks.forEach(cb => cb.classList.remove('d-none'));
+
+    // 3. Cambiamos el botón de "Liquidar" para que ahora diga "Confirmar"
+    const btn = document.querySelector('button[onclick="habilitarSeleccionLiquidacion()"]') 
+             || document.querySelector('button[onclick="abrirPanelLiquidacion()"]');
+    
+    if (btn) {
+        btn.innerHTML = '<i class="bi bi-check2-all me-1"></i> CONFIRMAR SELECCIÓN';
+        btn.classList.replace('btn-warning', 'btn-success');
+        btn.setAttribute('onclick', 'abrirPanelLiquidacion()');
+    }
+}
+/* --- FUNCIONES FALTANTES PARA EMPRESAS --- */
+
+function prepararEdicionEmpresa(cuit) {
+    // Buscamos los datos en el cache que ya tenemos
+    const emp = cacheEmpresas.find(e => e[2].toString().replace(/\D/g, '') === cuit.toString().replace(/\D/g, ''));
+    if (emp) {
+        // Usamos la misma función que ya tenés para ver el detalle, 
+        // ya que esa función llena los inputs y permite editar
+        verDetalleEmpresa(cuit);
+    }
+}
+
+async function eliminarEmpresa(cuit) {
+    if (!confirm(`¿Estás seguro de eliminar la empresa CUIT: ${cuit}? Se borrarán sus datos.`)) return;
+
+    try {
+        const resp = await fetch(URL_WEB_APP, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'eliminar', cuit: cuit })
+        });
+        const res = await resp.text();
+        if (res.includes("OK")) {
+            alert("✅ Empresa eliminada");
+            cargarEmpresas(); // Recargamos la lista
+        } else {
+            alert("Error al eliminar: " + res);
+        }
+    } catch (e) { console.error("Error:", e); }
+}
+// Aseguramos que la variable sea global
+window.listaParaImprimir = [];
+
+function abrirPanelLiquidacion() {
+    const seleccionados = [];
+    const checks = document.querySelectorAll('.check-empleado:checked');
+    
+    if (checks.length === 0) {
+        alert("Por favor, seleccioná al menos un empleado.");
+        return;
+    }
+
+    checks.forEach(cb => {
+        const cuil = cb.getAttribute('data-cuil').toString().replace(/\D/g, '').trim();
+        const emp = cacheEmpleados.find(e => e[2].toString().replace(/\D/g, '').trim() === cuil);
+        if (emp) seleccionados.push(emp);
+    });
+
+    // Guardamos en la variable global
+    window.listaParaImprimir = seleccionados;
+
+    const contenedor = document.getElementById('contenedor-conceptos');
+    const cabecera = document.getElementById('cabecera-recibo');
+    
+    cabecera.innerHTML = `<h5 class="text-center text-primary fw-bold p-2">RESUMEN</h5>`;
+    contenedor.innerHTML = `
+        <div class="p-3 text-white">
+            <p class="bg-dark p-2 text-center">Vas a imprimir <strong>${seleccionados.length}</strong> recibo(s).</p>
+            <ul class="list-group">
+                ${seleccionados.map(emp => `<li class="list-group-item bg-dark text-white border-secondary small">${emp[1]}</li>`).join('')}
+            </ul>
+        </div>`;
+
+    new bootstrap.Modal(document.getElementById('modalLiquidacion')).show();
+}
+
+function imprimirRecibo() {
+    const seleccionados = window.listaParaImprimir;
+    
+    if (!seleccionados || seleccionados.length === 0) {
+        alert("No hay datos para mostrar.");
+        return;
+    }
+
+    const ventana = window.open('', '_blank');
+    if (!ventana) {
+        alert("El navegador bloqueó la ventana emergente. Por favor, permití los pop-ups.");
+        return;
+    }
+    
+    let contenidoHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Recibos de Sueldo - MW SOCIALS</title>
+        <style>
+            @page { size: A4; margin: 0; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background-color: #fff; color: #333; }
+            .recibo { 
+                border: 2px solid #000; 
+                padding: 25px; 
+                margin-bottom: 40px; 
+                page-break-after: always; 
+                box-shadow: none;
+            }
+            .header { border-bottom: 2px solid #000; display: flex; justify-content: space-between; padding-bottom: 10px; margin-bottom: 15px; }
+            .empresa-info { font-size: 14px; }
+            .recibo-titulo { text-align: right; text-transform: uppercase; }
+            .datos-empleado { background: #f9f9f9; padding: 10px; border: 1px solid #ccc; margin-bottom: 15px; display: flex; justify-content: space-between; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+            th { background: #eee; border: 1px solid #000; padding: 10px; text-align: left; text-transform: uppercase; }
+            td { border: 1px solid #000; padding: 10px; }
+            .text-end { text-align: right; }
+            .neto-box { 
+                background: #000; 
+                color: #fff; 
+                padding: 15px; 
+                margin-top: 20px; 
+                display: flex; 
+                justify-content: space-between; 
+                font-size: 18px; 
+                font-weight: bold; 
+            }
+            .firmas { display: flex; justify-content: space-between; margin-top: 70px; }
+            .firma-linea { width: 40%; border-top: 1px solid #000; text-align: center; padding-top: 5px; font-size: 12px; font-weight: bold; }
+        </style>
+    </head>
+    <body>`;
+
+    seleccionados.forEach(emp => {
+        const bruto = parseFloat(emp[6]) || 0;
+        let conceptos = [];
+        try { conceptos = emp[10] ? JSON.parse(emp[10]) : []; } catch(e) { console.error("Error JSON:", e); }
+
+        let tHaberes = bruto;
+        let tDescuentos = 0;
+        let filas = `<tr><td>01</td><td>SUELDO BÁSICO MENS.</td><td class="text-end">${bruto.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td><td class="text-end">0,00</td></tr>`;
+
+        conceptos.forEach(c => {
+            const perc = parseFloat(c.valor) || 0;
+            const val = bruto * (perc / 100);
+            const tipo = (c.tipo || "").toLowerCase();
+            
+            // Verificamos si es Remunerativo o No Remunerativo
+            if (tipo.includes('r') || tipo.includes('haber')) {
+                tHaberes += val;
+                filas += `<tr><td>-</td><td>${c.nombre}</td><td class="text-end">${val.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td><td class="text-end">0,00</td></tr>`;
+            } else {
+                tDescuentos += val;
+                filas += `<tr><td>-</td><td>${c.nombre}</td><td class="text-end">0,00</td><td class="text-end">${val.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td></tr>`;
+            }
+        });
+
+        contenidoHtml += `
+        <div class="recibo">
+            <div class="header">
+                <div class="empresa-info">
+                    <strong style="font-size: 20px;">MW SOCIALS</strong><br>
+                    <span>Liquidación de Haberes</span>
+                </div>
+                <div class="recibo-titulo">
+                    <strong>Recibo de Ley 20.744</strong><br>
+                    <span>Periodo: Junio 2026</span>
+                </div>
+            </div>
+            
+            <div class="datos-empleado">
+                <span><strong>EMPLEADO:</strong> ${emp[1]}</span>
+                <span><strong>CUIL:</strong> ${emp[2]}</span>
+                <span><strong>CARGO:</strong> ${emp[4] || 'Administrativo'}</span>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th width="10%">Cód</th>
+                        <th width="50%">Concepto / Descripción</th>
+                        <th width="20%" class="text-end">Haberes</th>
+                        <th width="20%" class="text-end">Descuentos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filas}
+                </tbody>
+            </table>
+
+            <div class="neto-box">
+                <span>TOTAL NETO A COBRAR:</span>
+                <span>$ ${(tHaberes - tDescuentos).toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
+            </div>
+
+            <div class="firmas">
+                <div class="firma-linea">FIRMA EMPLEADOR</div>
+                <div class="firma-linea">FIRMA EMPLEADO</div>
+            </div>
+        </div>`;
+    });
+
+    contenidoHtml += `
+        <script>
+            window.onload = function() {
+                setTimeout(function() {
+                    window.print();
+                    window.onafterprint = function() { window.close(); };
+                }, 300);
+            };
+        </script>
+    </body>
+    </html>`;
+
+    ventana.document.open();
+    ventana.document.write(contenidoHtml);
+    ventana.document.close();
+}
+async function eliminarEmpleado(cuil) {
+    if (!confirm(`¿Estás seguro de eliminar al empleado con CUIL: ${cuil}?`)) return;
+
+    try {
+        const resp = await fetch(URL_WEB_APP, {
+            method: 'POST',
+            body: JSON.stringify({ 
+                action: 'eliminarEmpleado', // Asegurate que en Apps Script se llame igual
+                cuil: cuil 
+            })
+        });
+        const res = await resp.text();
+        if (res.includes("OK")) {
+            alert("✅ Empleado eliminado");
+            // Recargamos la tabla usando el CUIT que está en el input de la empresa
+            const cuitActual = document.getElementById('emp-cuit')?.value;
+            if(cuitActual) cargarEmpleadosEmpresa(cuitActual);
+        } else {
+            alert("Error al eliminar: " + res);
+        }
+    } catch (e) { console.error("Error:", e); }
+}

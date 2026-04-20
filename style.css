@@ -3,7 +3,7 @@
 }
 #pantalla-login .card {
     border-radius: 15px;
-    background: #ffffff;
+    background: #e7dddd;
 }
 /* Esto fuerza a que el sistema use el 95% del ancho de la pantalla */
 .container-fluid {
@@ -27,7 +27,6 @@ button,
 [onclick] {
     cursor: pointer !important;
 }
-<style>
     .table-responsive {
         border-radius: 15px;
         overflow: hidden;
@@ -42,4 +41,3 @@ button,
         .no-print { display: none !important; }
         body { background: white !important; }
     }
-</style>
