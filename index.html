@@ -17,7 +17,7 @@
                 <div class="display-4 text-warning mb-2"><i class="bi bi-person-lock"></i></div>
                 <h4 class="fw-bold text-uppercase text-dark">Acceso Privado</h4>
             </div>
-            <form id="form-login">
+            <form id="form-login" onsubmit="iniciarSesion(event)">
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Usuario</label>
                     <input type="text" id="user-login" class="form-control bg-light border-0" required>
@@ -44,10 +44,8 @@
                 </button>
                 <div class="collapse navbar-collapse" id="menuNav">
                     <ul class="navbar-nav ms-auto fw-bold small">
-                        <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('empresas')">EMPRESA</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('empresas')">EMPRESAS</a></li>
                         <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('gremios')">GREMIOS</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link px-3" onclick="mostrarSeccion('empleados')">EMPLEADOS</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link px-3 text-warning" onclick="mostrarSeccion('liquidaciones')">LIQUIDACIONES 🔥</a></li>
                         <li class="nav-item"><a href="#" class="nav-link px-3 text-danger" onclick="cerrarSesion()"><i class="bi bi-power"></i></a></li>
                     </ul>
                 </div>
@@ -55,6 +53,7 @@
         </nav>
 
         <main class="container my-4">
+            
             <section id="sec-inicio" class="seccion-app">
                 <div class="p-5 mb-4 bg-white rounded-4 shadow-sm border text-center">
                     <h1 class="display-6 fw-bold">Gestión de Liquidaciones</h1>
@@ -80,13 +79,8 @@
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <div class="card border-0 shadow-sm rounded-4 bg-dark text-white p-3 h-100 d-flex flex-row align-items-center">
-                            <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
-                                <i class="bi bi-building fs-5"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-0 fw-bold text-uppercase">Mis Empresas</h6>
-                                <small class="opacity-75">Listado de empleadores</small>
-                            </div>
+                            <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;"><i class="bi bi-building fs-5"></i></div>
+                            <div><h6 class="mb-0 fw-bold text-uppercase">Mis Empresas</h6><small class="opacity-75">Listado de empleadores</small></div>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -96,18 +90,11 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                    <div class="card-header bg-white p-3"><h5 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2 text-warning"></i> LISTADO</h5></div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0 small">
                             <thead class="table-light text-uppercase">
-                                <tr>
-                                    <th>Empleador</th>
-                                    <th>CUIT</th>
-                                    <th>Dirección</th>
-                                    <th class="text-end pe-3">Acciones</th>
-                                </tr>
+                                <tr><th>Empleador</th><th>CUIT</th><th>Dirección</th><th class="text-end pe-3">Acciones</th></tr>
                             </thead>
                             <tbody id="tabla-empresas"></tbody>
                         </table>
@@ -117,20 +104,12 @@
 
             <section id="sec-detalle-empresa" class="seccion-app d-none">
                 <div id="cabecera-empresa-detalle" class="card border-0 shadow-sm rounded-4 bg-dark text-white p-4 mb-3"></div>
-
-                <div class="card border-0 shadow-sm rounded-4 mb-4" style="background-color: #2c3e50; border-left: 5px solid #3498db !important;">
-                    <div class="card-header bg-transparent border-0 pt-3 pb-0">
-                        <h6 class="fw-bold text-info mb-0 text-uppercase"><i class="bi bi-calendar-check me-2"></i> Datos de Liquidación Mensual</h6>
-                    </div>
-                    <div class="card-body">
-                        <form id="form-datos-mensuales" onsubmit="event.preventDefault(); guardarCambiosEmpresa();">
-                            <div id="contenedor-inputs-mensuales" class="row g-2 text-white"></div>
-                            <div class="col-12 text-end mt-3">
-                                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-bold">
-                                    <i class="bi bi-save me-1"></i> ACTUALIZAR DATOS DE EMPRESA
-                                </button>
-                            </div>
-                        </form>
+                
+                <div class="card border-0 shadow-sm rounded-4 bg-primary text-white p-3 mb-3">
+                    <h6 class="fw-bold mb-3 small text-uppercase text-white-50">Liquidación Mensual</h6>
+                    <div id="contenedor-inputs-mensuales" class="row g-2"></div>
+                    <div class="text-end mt-2">
+                        <button class="btn btn-sm btn-light fw-bold" onclick="guardarCambiosEmpresa()">GUARDAR DATOS MENSUALES</button>
                     </div>
                 </div>
 
@@ -138,21 +117,24 @@
                     <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center border-bottom">
                         <h5 class="mb-0 fw-bold text-secondary text-uppercase"><i class="bi bi-people-fill me-2"></i> Empleados</h5>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-warning fw-bold btn-sm" onclick="habilitarSeleccionLiquidacion()">
+                            <button id="btn-habilitar-liq" class="btn btn-warning fw-bold btn-sm" onclick="habilitarSeleccionLiquidacion()">
                                 <i class="bi bi-calculator me-1"></i> LIQUIDAR SUELDO
                             </button>
                             <button class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-sm" onclick="abrirModalEmpleado()">
-                                <i class="bi bi-person-plus me-1"></i> AGREGAR
+                                <i class="bi bi-person-plus me-1"></i> AGREGAR EMPLEADO
                             </button>
                         </div>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light small text-uppercase">
-                                <tr id="header-tabla-empleados">
-                                    <th>Nombre</th>
+                                <tr>
+                                    <th id="th-check-header" class="d-none text-center" style="width: 50px;">
+                                        <input type="checkbox" onclick="toggleTodosEmpleados(this)">
+                                    </th>
+                                    <th>Nombre y Apellido</th>
                                     <th>CUIL</th>
-                                    <th>Cargo</th>
+                                    <th>Tarea</th>
                                     <th class="text-end pe-3">Acciones</th>
                                 </tr>
                             </thead>
@@ -160,225 +142,186 @@
                         </table>
                     </div>
                 </div>
-                
-                <div class="mt-3">
-                    <button class="btn btn-link text-decoration-none text-muted p-0" onclick="mostrarSeccion('empresas')">
-                        <i class="bi bi-arrow-left"></i> Volver al listado de empresas
-                    </button>
-                </div>
+                <div class="mt-3"><button class="btn btn-link text-muted" onclick="mostrarSeccion('empresas')"><i class="bi bi-arrow-left"></i> Volver</button></div>
             </section>
 
             <section id="sec-gremios" class="seccion-app d-none">
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 bg-dark text-white p-3 h-100 d-flex flex-row align-items-center">
-                            <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
-                                <i class="bi bi-person-badge fs-5"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-0 fw-bold text-uppercase">Gestión de Gremios</h6>
-                                <small class="opacity-75">Configuración de escalas y conceptos</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100 d-flex flex-row align-items-center hover-card cursor-pointer" onclick="abrirModalGremio()">
-                            <div class="rounded-circle bg-light text-warning d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px; border: 1px dashed orange;">
-                                <i class="bi bi-plus-lg fs-5"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-0 fw-bold text-uppercase">Nuevo Gremio</h6>
-                                <small class="text-muted">Crear nueva actividad y conceptos</small>
-                            </div>
-                        </div>
-                    </div>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="fw-bold text-uppercase"><i class="bi bi-person-badge text-warning me-2"></i> Gremios</h4>
+                    <button class="btn btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#modalGremio">NUEVO GREMIO</button>
                 </div>
-
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                    <div class="card-header bg-white p-3"><h5 class="mb-0 fw-bold"><i class="bi bi-list-stars me-2 text-warning"></i> GREMIOS REGISTRADOS</h5></div>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0 small">
-                            <thead class="table-light text-uppercase">
-                                <tr>
-                                    <th>Gremio</th>
-                                    <th>Actividad</th>
-                                    <th>Conceptos</th>
-                                    <th class="text-end pe-3">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabla-gremios-cuerpo"></tbody>
-                        </table>
-                    </div>
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase">
+                            <tr><th>Nombre</th><th>Actividad</th><th>Conceptos</th><th class="text-end">Acciones</th></tr>
+                        </thead>
+                        <tbody id="tabla-gremios-cuerpo"></tbody>
+                    </table>
                 </div>
             </section>
+
         </main>
     </div>
 
-    <div class="modal fade" id="modalEmpleado" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header bg-primary text-white border-0">
-                    <h5 class="modal-title fw-bold">REGISTRAR EMPLEADO</h5>
+    <div class="modal fade" id="modalEmpresa" tabindex="-1">
+        <div class="modal-dialog">
+            <form id="form-empresa" onsubmit="guardarEmpresa(event)" class="modal-content border-0 rounded-4 shadow">
+                <div class="modal-header border-0 bg-dark text-white p-4">
+                    <h5 class="modal-title fw-bold">NUEVA EMPRESA</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <form id="form-empleado" class="row g-3">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Empleador (Razón Social)</label>
+                        <input type="text" id="emp-empleador" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Dirección</label>
+                        <input type="text" id="emp-direccion" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">CUIT</label>
+                        <input type="text" id="emp-cuit" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="submit" class="btn btn-warning fw-bold w-100 py-2">REGISTRAR EMPRESA</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalEmpleado" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <form id="form-empleado" class="modal-content border-0 rounded-4 shadow">
+                <div class="modal-header border-0 bg-success text-white p-4">
+                    <h5 class="modal-title fw-bold">NUEVO EMPLEADO</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold">LEGAJO</label>
-                            <input type="text" id="empl-legajo" class="form-control border-0 bg-light fw-bold text-primary">
+                            <label class="form-label small fw-bold">Legajo</label>
+                            <input type="text" id="empl-legajo" class="form-control bg-light fw-bold" readonly>
                         </div>
                         <div class="col-md-8">
-                            <label class="form-label small fw-bold">NOMBRE COMPLETO</label>
-                            <input type="text" id="empl-nombre" class="form-control border-0 bg-light" required>
+                            <label class="form-label small fw-bold">Nombre Completo</label>
+                            <input type="text" id="empl-nombre" class="form-control" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-bold">CUIL</label>
-                            <input type="text" id="empl-cuil" class="form-control border-0 bg-light" required placeholder="00-00000000-0">
+                            <input type="text" id="empl-cuil" class="form-control" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold">FECHA INGRESO</label>
-                            <input type="date" id="empl-ingreso" class="form-control border-0 bg-light" required>
+                            <label class="form-label small fw-bold">Fecha Ingreso</label>
+                            <input type="date" id="empl-ingreso" class="form-control" required>
                         </div>
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-primary">GREMIO / CONVENIO</label>
-                            <select id="empl-gremio" class="form-select border-0 bg-light fw-bold" required>
-                                <option value="" selected disabled>Cargando gremios...</option>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Gremio</label>
+                            <select id="empl-gremio" class="form-select" required></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Tarea / Cargo</label>
+                            <input type="text" id="empl-tarea" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Días Trabajados</label>
+                            <input type="number" id="empl-dias" class="form-control" value="30">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Básico</label>
+                            <input type="number" id="empl-basico" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Bruto Total</label>
+                            <input type="number" id="empl-bruto" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mt-4 p-3 bg-light rounded-3" id="contenedor-conceptos-gremio">
+                        <span class="text-muted small italic">Seleccione un gremio para ver los conceptos.</span>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="submit" class="btn btn-success fw-bold w-100 py-2">GUARDAR EMPLEADO</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalGremio" tabindex="-1">
+        <div class="modal-dialog">
+            <form id="form-gremio" class="modal-content border-0 rounded-4">
+                <div class="modal-header bg-dark text-white border-0 p-4">
+                    <h5 class="modal-title fw-bold">CONFIGURAR GREMIO</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="small fw-bold">Nombre Gremio</label>
+                        <input type="text" id="gre-nombre" class="form-control" placeholder="Ej: Comercio" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold">Actividad</label>
+                        <input type="text" id="gre-actividad" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold">Categorías (Separadas por coma)</label>
+                        <input type="text" id="gre-categorias" class="form-control">
+                    </div>
+                    <hr>
+                    <h6 class="fw-bold mb-3 small text-primary text-uppercase">Agregar Concepto (Descuento/Aporte)</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <input type="text" id="nombre-concepto" class="form-control form-control-sm" placeholder="Nombre (Ej: Jubilación)">
+                        </div>
+                        <div class="col-3">
+                            <select id="tipo-concepto" class="form-select form-select-sm">
+                                <option value="DESC">DESCUENTO</option>
+                                <option value="APORTE">APORTE</option>
                             </select>
                         </div>
+                        <div class="col-3">
+                            <input type="number" id="porcentaje-concepto" class="form-control form-control-sm" placeholder="%">
+                        </div>
                         <div class="col-12">
-                            <div class="p-3 rounded-3 border bg-light">
-                                <label class="d-block mb-2 small fw-bold text-secondary">CONCEPTOS A LIQUIDAR</label>
-                                <div id="contenedor-conceptos-gremio" class="d-flex flex-wrap gap-2">
-                                    <span class="text-muted small italic">Seleccione un gremio para ver los ítems...</span>
-                                </div>
-                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="agregarConceptoLista()">AÑADIR CONCEPTO</button>
                         </div>
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold">TAREA / CARGO</label>
-                            <input type="text" id="empl-tarea" class="form-control border-0 bg-light" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">SUELDO BRUTO</label>
-                            <input type="number" id="empl-bruto" class="form-control border-0 bg-light" required value="0">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">DÍAS TRAB.</label>
-                            <input type="number" id="empl-dias" class="form-control border-0 bg-light" required value="30">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">BÁSICO</label>
-                            <input type="number" id="empl-basico" class="form-control border-0 bg-light" required value="0">
-                        </div>
-                        <div class="col-12 mt-4">
-                            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow-sm">GUARDAR EMPLEADO</button>
-                        </div>
-                    </form>
+                    </div>
+                    <div id="lista-conceptos-dinamicos" class="d-flex flex-wrap border rounded p-2 bg-light min-vh-10"></div>
                 </div>
-            </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="submit" class="btn btn-dark fw-bold w-100">CREAR GREMIO</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <div class="modal fade" id="modalGremio" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content bg-dark text-white border-0 shadow-lg">
-                <div class="modal-header border-secondary">
-                    <h5 class="modal-title fw-bold text-warning" id="tituloModalGremio">GESTIÓN DE GREMIO</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <div class="modal fade" id="modalLiquidacion" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content border-0 rounded-4">
+                <div class="modal-header border-0 bg-warning p-4">
+                    <h5 class="modal-title fw-bold">PROCESAR LIQUIDACIÓN</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="form-gremio">
-                    <div class="modal-body p-4">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="small fw-bold">NOMBRE DEL GREMIO</label>
-                                <input type="text" id="gre-nombre" class="form-control bg-secondary text-white border-0" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="small fw-bold">ACTIVIDAD</label>
-                                <input type="text" id="gre-actividad" class="form-control bg-secondary text-white border-0">
-                            </div>
-                            <div class="col-md-12">
-                                <label class="small fw-bold">CATEGORÍAS</label>
-                                <textarea id="gre-categorias" class="form-control bg-secondary text-white border-0" rows="2" placeholder="Separe categorías por comas..."></textarea>
-                            </div>
-                            
-                            <div class="col-md-12 mt-4">
-                                <label class="small fw-bold text-warning mb-2 d-block">CONCEPTOS DE LIQUIDACIÓN</label>
-                                <div id="lista-conceptos-dinamicos" class="bg-black bg-opacity-50 border border-secondary p-3 rounded-3 mb-3" style="min-height: 80px;">
-                                    <span class="text-muted small italic">No hay conceptos agregados aún.</span>
-                                </div>
-                                
-                                <div class="row g-2 align-items-end p-3 rounded-3" style="background-color: #212529;">
-                                    <div class="col-md-5">
-                                        <label class="form-label small text-white-50">Nombre del Concepto</label>
-                                        <input type="text" id="nombre-concepto" class="form-control bg-dark text-white border-secondary">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label small text-white-50">Tipo</label>
-                                        <select id="tipo-concepto" class="form-select bg-dark text-white border-secondary">
-                                            <option value="R">Remunerativo</option>
-                                            <option value="NR">No Remun.</option>
-                                            <option value="D">Descuento</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label small text-white-50">% Valor</label>
-                                        <input type="number" id="porcentaje-concepto" class="form-control bg-dark text-white border-secondary" step="0.01">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button type="button" class="btn btn-warning w-100 fw-bold" onclick="agregarConceptoLista()">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-secondary">
-                        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">CANCELAR</button>
-                        <button type="submit" class="btn btn-warning fw-bold px-4">GUARDAR GREMIO</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalLiquidacion" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content bg-dark text-white border-0 shadow-lg">
-                <div class="modal-header border-secondary">
-                    <h5 class="modal-title fw-bold text-info">PREVISUALIZACIÓN DE RECIBO</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <div id="cabecera-recibo" class="p-4 bg-secondary text-white"></div>
-                    <div class="p-4">
-                        <div class="table-responsive">
-                            <table class="table table-dark table-hover mb-0">
-                                <thead>
-                                    <tr class="text-warning small text-uppercase border-secondary">
-                                        <th>Concepto</th>
-                                        <th class="text-center">Porc.</th>
-                                        <th class="text-end">Haberes</th>
-                                        <th class="text-end">Descuentos</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="contenedor-conceptos" class="border-secondary"></tbody>
-                                <tfoot id="totales-recibo" class="fw-bold border-top border-secondary"></tfoot>
-                            </table>
-                        </div>
+                <div class="modal-body p-4">
+                    <div id="cabecera-recibo" class="mb-4"></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm small">
+                            <thead>
+                                <tr><th>Empleado</th><th class="text-center">Conceptos</th><th class="text-end">Haberes</th><th class="text-end">Desc.</th></tr>
+                            </thead>
+                            <tbody id="contenedor-conceptos"></tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="modal-footer border-secondary">
-                    <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">CERRAR</button>
-                    <button type="button" class="btn btn-primary fw-bold" onclick="imprimirRecibo()">
-                        <i class="bi bi-printer me-1"></i> IMPRIMIR
+                <div class="modal-footer border-0 p-4">
+                    <button class="btn btn-dark w-100 py-3 fw-bold" onclick="imprimirRecibo()">
+                        <i class="bi bi-printer me-2"></i> GENERAR Y IMPRIMIR RECIBOS
                     </button>
                 </div>
             </div>
         </div>
     </div>
-
-    <footer class="text-center py-4 small text-muted">&copy; 2026 Sistema Sueldos | MWsocials</footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
