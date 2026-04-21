@@ -18,7 +18,7 @@ function iniciarSesion(e) {
     e.preventDefault();
     const u = document.getElementById('user-login').value;
     const p = document.getElementById('pass-login').value;
-    if (u === "walter" && p === "1234") {
+    if (u === "omar" && p === "1234") {
         sessionStorage.setItem("sueldos_auth", "true");
         mostrarSistema();
     } else {
