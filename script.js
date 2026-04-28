@@ -340,6 +340,8 @@ function imprimirRecibo() {
     const empActiva = cacheEmpresas.find(e => e[2].toString() === cuitEmpresaActiva.toString());
     const periodo = document.getElementById('emp-periodo')?.value || "";
     const domicilioPago = document.getElementById('emp-domicilio')?.value || empActiva[6] || "";
+    const banco = document.getElementById('emp-banco')?.value || empActiva[9] || "";
+    const fechaPago = document.getElementById('emp-fechaPago')?.value || "";
 
     let contenidoHTML = `
     <html>
@@ -349,30 +351,26 @@ function imprimirRecibo() {
             .no-print { padding: 15px; text-align: center; background: #333; position: sticky; top: 0; z-index: 100; }
             .btn-print { padding: 10px 20px; cursor: pointer; font-weight: bold; background: white; border: none; border-radius: 4px; }
             
-            .a4-container { background: white; width: 210mm; min-height: 297mm; padding: 15mm; margin: 20px auto; box-sizing: border-box; page-break-after: always; }
+            .a4-container { background: white; width: 210mm; min-height: 144mm; padding: 10mm 15mm; margin: 10px auto; box-sizing: border-box; position: relative; border-bottom: 1px dashed #666; }
+            .a4-container:nth-of-type(even) { page-break-after: always; border-bottom: none; }
             
-            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            th, td { border: 1px solid black; padding: 3px 5px; font-size: 9pt; height: 20px; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: -1px; }
+            th, td { border: 1px solid black; padding: 2px 4px; font-size: 8pt; height: 16px; overflow: hidden; }
             
-            .bg-gray { background: #eeeeee; font-weight: bold; }
+            .bg-gray { background: #eeeeee; font-weight: bold; text-align: center; }
             .text-right { text-align: right; }
             .text-center { text-align: center; }
-
-            /* ESTA PARTE CIERRA LAS LÍNEAS VERTICALES */
-            .tabla-conceptos { border-bottom: none; }
-            .tabla-conceptos td { 
-                border-top: none; 
-                border-bottom: none; 
-                vertical-align: middle;
-            }
             
-            /* Fila final para cerrar el cuadro */
+            .tabla-conceptos td { border-top: none; border-bottom: none; vertical-align: middle; }
             .border-bottom { border-bottom: 1px solid black !important; }
-            
-            /* Contenedor para que las líneas sigan hasta abajo si hay pocos conceptos */
-            .relleno-lineas { height: 300px; vertical-align: top !important; }
+            .relleno-lineas { height: 140px; vertical-align: top !important; }
+            .texto-legal { font-size: 7pt; margin-top: 5px; text-align: justify; }
 
-            @media print { body { background: white; } .no-print { display: none; } .a4-container { margin: 0; box-shadow: none; } }
+            @media print { 
+                body { background: white; } 
+                .no-print { display: none; } 
+                .a4-container { margin: 0; box-shadow: none; } 
+            }
         </style>
     </head>
     <body>
@@ -381,97 +379,165 @@ function imprimirRecibo() {
     listaParaImprimir.forEach(emp => {
         const brutoValue = parseFloat(emp[6] || 0);
         const conceptosRaw = emp[10] || "";
-        
-        let filasHTML = `
-            <tr>
-                <td style="width: 45%;">Sueldo Básico</td>
-                <td class="text-center" style="width: 8%;">30</td>
-                <td class="text-center" style="width: 8%;">-</td>
-                <td class="text-right" style="width: 13%;">$ ${brutoValue.toLocaleString('es-AR')}</td>
-                <td style="width: 13%;"></td>
-                <td style="width: 13%;"></td>
-            </tr>`;
+        const tiposCopia = ["ORIGINAL PARA EL EMPLEADOR", "DUPLICADO PARA EL EMPLEADO"];
 
-        if (conceptosRaw) {
-            conceptosRaw.split(',').forEach(cStr => {
-                const [n, t, v] = cStr.split('|');
-                if (!n) return;
-                filasHTML += `
-                    <tr>
-                        <td>${n}</td>
-                        <td class="text-center"></td>
-                        <td class="text-center"></td>
-                        <td class="text-right">${(t==='REM'||t==='Remunerativo') ? '$ '+v : ''}</td>
-                        <td class="text-right">${(t==='DESC'||t==='APORTE'||t==='Descuento') ? '$ '+v : ''}</td>
-                        <td class="text-right">${(t==='NO_REM'||t==='No Remunerativo') ? '$ '+v : ''}</td>
-                    </tr>`;
-            });
-        }
+        tiposCopia.forEach(tipo => {
+            let filasConceptos = "";
+            let totalRemun = brutoValue;
+            let totalNoRemun = 0;
+            let totalDesc = 0;
 
-        // Fila de relleno que estira las líneas verticales sin separar los conceptos de arriba
-        filasHTML += `<tr class="relleno-lineas border-bottom"><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
-
-        contenidoHTML += `
-        <div class="a4-container">
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-                <div>
-                    <h3 style="margin:0">${empActiva[0]}</h3>
-                    <small>CUIT: ${empActiva[2]}<br>${domicilioPago}</small>
-                </div>
-                <div class="text-right">
-                    <h3 style="margin:0">Recibo de Haberes</h3>
-                    <small>Legajo N°: ${emp[0]}<br>Original / Duplicado</small>
-                </div>
-            </div>
-
-            <table style="margin-bottom: -1px;">
-                <tr class="bg-gray text-center">
-                    <td>Nombre y Apellido</td><td>Fecha de Ingreso</td><td>CUIL</td><td>Sueldo Básico</td>
-                </tr>
-                <tr class="text-center">
-                    <td>${emp[1]}</td><td>${emp[3]}</td><td>${emp[2]}</td><td>$ ${brutoValue.toLocaleString('es-AR')}</td>
-                </tr>
-            </table>
-
-            <table class="tabla-conceptos">
-                <tr class="bg-gray text-center" style="border-bottom: 1px solid black;">
-                    <td style="width: 45%;">Descripción de Conceptos</td>
-                    <td style="width: 8%;">Base</td>
-                    <td style="width: 8%;">%</td>
-                    <td style="width: 13%;">Remunerativo</td>
-                    <td style="width: 13%;">Descuentos</td>
-                    <td style="width: 13%;">No Remun.</td>
-                </tr>
-                ${filasHTML}
-            </table>
-
-            <table style="margin-top: -1px;">
-                <tr class="bg-gray text-center">
-                    <td>TOTAL BRUTO</td><td>TOTAL REMUNERATIVO</td><td>TOTAL NO REMUNERATIVO</td><td>TOTAL DESCUENTOS</td>
-                </tr>
-                <tr class="text-right">
-                    <td>$ ${brutoValue.toLocaleString('es-AR')}</td>
-                    <td>$ ${brutoValue.toLocaleString('es-AR')}</td>
-                    <td>$ 0,00</td>
-                    <td>$ 0,00</td>
-                </tr>
+            // Fila inicial: Sueldo Básico
+            filasConceptos += `
                 <tr>
-                    <td colspan="3" class="text-right bg-gray">NETO A COBRAR</td>
-                    <td class="text-right" style="font-size:12pt; font-weight:bold;">$ ${brutoValue.toLocaleString('es-AR')}</td>
-                </tr>
-            </table>
+                    <td>Sueldo Básico</td>
+                    <td class="text-center">30</td>
+                    <td class="text-center">-</td>
+                    <td class="text-right">$ ${brutoValue.toLocaleString('es-AR')}</td>
+                    <td></td>
+                    <td></td>
+                </tr>`;
 
-            <div style="display:flex; justify-content:space-around; margin-top:80px;">
-                <div style="border-top:1px solid black; width:220px; text-align:center; padding-top:5px;">Firma Empleador</div>
-                <div style="border-top:1px solid black; width:220px; text-align:center; padding-top:5px;">Firma Empleado</div>
-            </div>
-        </div>`;
+            // Procesar conceptos dinámicos
+            if (conceptosRaw) {
+                conceptosRaw.split(',').forEach(cStr => {
+                    const [n, t, v] = cStr.split('|');
+                    if (!n) return;
+                    const val = parseFloat(v) || 0;
+                    const esRem = (t==='REM'||t==='Remunerativo');
+                    const esDesc = (t==='DESC'||t==='APORTE'||t==='Descuento');
+                    const esNoRem = (t==='NO_REM'||t==='No Remunerativo');
+
+                    if(esRem) totalRemun += val;
+                    if(esDesc) totalDesc += val;
+                    if(esNoRem) totalNoRemun += val;
+
+                    filasConceptos += `
+                        <tr>
+                            <td>${n}</td>
+                            <td class="text-center"></td>
+                            <td class="text-center"></td>
+                            <td class="text-right">${esRem ? '$ '+val.toLocaleString('es-AR') : ''}</td>
+                            <td class="text-right">${esDesc ? '$ '+val.toLocaleString('es-AR') : ''}</td>
+                            <td class="text-right">${esNoRem ? '$ '+val.toLocaleString('es-AR') : ''}</td>
+                        </tr>`;
+                });
+            }
+
+            const totalNeto = (totalRemun + totalNoRemun) - totalDesc;
+
+            contenidoHTML += `
+            <div class="a4-container">
+                <table>
+                    <tr>
+                        <td style="width: 60%; border:none;">
+                            <h3 style="margin:0">${empActiva[0]}</h3>
+                            <div style="font-size:8pt;">${domicilioPago}</div>
+                            <div style="font-size:8pt;">CUIT: ${empActiva[2]}</div>
+                        </td>
+                        <td style="width: 40%; border:none; text-align:right;">
+                            <h4 style="margin:0">${tipo}</h4>
+                            <div style="font-size:9pt; font-weight:bold;">Legajo N°: ${emp[0]}</div>
+                        </td>
+                    </tr>
+                </table>
+
+                <table>
+                    <tr class="bg-gray">
+                        <td>Nombre y Apellido</td><td>Fecha Ingreso</td><td>CUIL</td><td>Dep. en Caja de Ahorro N°</td><td>Sueldo Básico</td>
+                    </tr>
+                    <tr class="text-center">
+                        <td>${emp[1]}</td><td>${emp[3]}</td><td>${emp[2]}</td><td>${banco}</td><td>$ ${brutoValue.toLocaleString('es-AR')}</td>
+                    </tr>
+                </table>
+
+                <table>
+                    <tr class="bg-gray">
+                        <td>Fecha Depósito</td><td>Banco de Depósito</td><td>Fecha Último Depósito</td><td>Calificación Profesional</td>
+                    </tr>
+                    <tr class="text-center">
+                        <td>${fechaPago}</td><td>${banco}</td><td>${fechaPago}</td><td>${emp[4] || 'Administración'}</td>
+                    </tr>
+                </table>
+
+                <table>
+                    <tr class="bg-gray">
+                        <td>Período Abonado</td><td>Domicilio de Pago</td><td colspan="2">Tarea Desempeñada</td>
+                    </tr>
+                    <tr class="text-center">
+                        <td>${periodo}</td><td>${domicilioPago}</td><td colspan="2">${emp[4] || 'Administración'}</td>
+                    </tr>
+                </table>
+
+                <table class="tabla-conceptos">
+                    <tr class="bg-gray">
+                        <td style="width: 40%;">Descripción de Conceptos</td>
+                        <td style="width: 8%;">Base</td>
+                        <td style="width: 8%;">%</td>
+                        <td style="width: 14%;">Remuneraciones</td>
+                        <td style="width: 14%;">Descuentos</td>
+                        <td style="width: 16%;">Conceptos No Remun.</td>
+                    </tr>
+                    ${filasConceptos}
+                    <tr class="relleno-lineas border-bottom"><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                </table>
+
+                <table>
+                    <tr>
+                        <td rowspan="3" style="width:56%; border:none;"></td>
+                        <td class="bg-gray" style="width:24%;">Total Bruto</td>
+                        <td class="text-right" style="width:20%; font-weight:bold;">$ ${(totalRemun).toLocaleString('es-AR')}</td>
+                    </tr>
+                    <tr>
+                        <td class="bg-gray">TOTAL Remunerativo</td>
+                        <td class="text-right" style="font-weight:bold;">$ ${totalRemun.toLocaleString('es-AR')}</td>
+                    </tr>
+                    <tr>
+                        <td class="bg-gray">TOTAL No Remunerativo</td>
+                        <td class="text-right" style="font-weight:bold;">$ ${totalNoRemun.toLocaleString('es-AR')}</td>
+                    </tr>
+                </table>
+
+                <table>
+                    <tr class="bg-gray">
+                        <td style="width:40%;">Subtotal:</td>
+                        <td style="width:16%; border:none;"></td>
+                        <td style="width:14%;">$ ${totalRemun.toLocaleString('es-AR')}</td>
+                        <td style="width:14%;">$ ${totalDesc.toLocaleString('es-AR')}</td>
+                        <td style="width:16%;">$ ${totalNoRemun.toLocaleString('es-AR')}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" class="text-right bg-gray">TOTAL NETO</td>
+                        <td class="text-right" style="font-size:10pt; font-weight:bold; background:#eee;">$ ${totalNeto.toLocaleString('es-AR')}</td>
+                    </tr>
+                </table>
+
+                <table style="margin-top:5px; border:none;">
+                    <tr>
+                        <td style="width: 60%; border:none; vertical-align:top;">
+                            <div style="font-weight:bold; font-size:8pt;">Recibí conforme la suma de:</div>
+                            <div style="text-transform:uppercase; font-size:8pt; border-bottom: 1px solid #ccc; min-height:15px;">
+                                SON: ${totalNeto.toLocaleString('es-AR')} PESOS
+                            </div>
+                            <div class="texto-legal">
+                                En concepto de mis haberes correspondientes al periodo arriba indicado y según la presente liquidación, dejando
+                                constancia de haber recibido un duplicado de este recibo.
+                            </div>
+                        </td>
+                        <td style="width: 40%; border:none; text-align:center; vertical-align:bottom;">
+                            <div style="border-top: 1px solid black; margin-top:40px; font-size:8pt;">Firma del Empleado</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>`;
+        });
     });
 
     contenidoHTML += `</body></html>`;
     ventana.document.write(contenidoHTML);
     ventana.document.close();
 }
+
 
 /* ============================================================
    🏢 DATOS MENSUALES
