@@ -248,53 +248,100 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modalGremio" tabindex="-1">
-        <div class="modal-dialog">
-            <form id="form-gremio" class="modal-content border-0 rounded-4">
+    <!-- MODAL GREMIO RECONSTRUIDO -->
+   <!-- MODAL GREMIO RECONSTRUIDO Y BLINDADO -->
+<div class="modal fade" id="modalGremio" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <form id="form-gremio">
                 <div class="modal-header bg-dark text-white border-0 p-4">
-                    <h5 class="modal-title fw-bold">CONFIGURAR GREMIO</h5>
+                    <h5 class="modal-title fw-bold"><i class="bi bi-person-badge me-2"></i>CONFIGURAR GREMIO</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label class="small fw-bold">Nombre Gremio</label>
-                        <input type="text" id="gre-nombre" class="form-control" placeholder="Ej: Comercio" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="small fw-bold">Actividad</label>
-                        <input type="text" id="gre-actividad" class="form-control">
-                    </div>
-                    <div class="mb-3">
-                        <label class="small fw-bold">Categorías (Separadas por coma)</label>
-                        <input type="text" id="gre-categorias" class="form-control">
-                    </div>
-                    <hr>
-                    <h6 class="fw-bold mb-3 small text-primary text-uppercase">Agregar Concepto (Descuento/Aporte)</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <input type="text" id="nombre-concepto" class="form-control form-control-sm" placeholder="Nombre (Ej: Jubilación)">
+                    <!-- PASO 1: Datos Básicos -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="small fw-bold text-uppercase">Nombre del Gremio</label>
+                            <input type="text" id="gre-nombre" class="form-control bg-light" placeholder="Ej: UOCRA" required>
                         </div>
-                        <div class="col-3">
-                            <select id="tipo-concepto" class="form-select form-select-sm">
-                                <option value="DESC">DESCUENTO</option>
-                                <option value="APORTE">APORTE</option>
-                            </select>
-                        </div>
-                        <div class="col-3">
-                            <input type="number" id="porcentaje-concepto" class="form-control form-control-sm" placeholder="%">
-                        </div>
-                        <div class="col-12">
-                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="agregarConceptoLista()">AÑADIR CONCEPTO</button>
+                        <div class="col-md-6">
+                            <label class="small fw-bold text-uppercase">Actividad</label>
+                            <input type="text" id="gre-actividad" class="form-control bg-light" placeholder="Ej: Construcción">
                         </div>
                     </div>
-                    <div id="lista-conceptos-dinamicos" class="d-flex flex-wrap border rounded p-2 bg-light min-vh-10"></div>
+
+                    <!-- PASO 2 y 3: Categorías -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-primary border-bottom pb-2">PASO 2 y 3: CATEGORÍAS Y VALORES</h6>
+                        <div class="row g-2 mb-3 align-items-end">
+                            <div class="col-md-5">
+                                <label class="xs-label mb-1">Nombre Categoría</label>
+                                <input type="text" id="cat-nombre" class="form-control form-control-sm" placeholder="Ej: Peón">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="xs-label mb-1">Valor ($)</label>
+                                <input type="number" id="cat-valor" class="form-control form-control-sm" placeholder="4500">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="xs-label mb-1">Tipo</label>
+                                <select id="cat-tipo" class="form-select form-select-sm">
+                                    <option value="HORA">POR HORA</option>
+                                    <option value="MENSUAL">POR MES</option>
+                                </select>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-primary btn-sm w-100" onclick="agregarCategoriaGremio()">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="lista-categorias-gremio" class="row g-2 bg-light p-2 rounded-3" style="min-height: 50px;">
+                            <!-- Categorías aparecerán aquí -->
+                        </div>
+                    </div>
+
+                    <!-- PASO 4: Conceptos (ESTA ES LA PARTE QUE TE FALTABA) -->
+                    <div class="mb-2">
+                        <h6 class="fw-bold text-success border-bottom pb-2">PASO 4: CONCEPTOS (JUBILACIÓN, ADICIONALES, ETC.)</h6>
+                        <div class="row g-2 mb-3 align-items-end">
+                            <div class="col-md-5">
+                                <label class="xs-label mb-1">Concepto</label>
+                                <input type="text" id="con-nombre" class="form-control form-control-sm" placeholder="Ej: Jubilación">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="xs-label mb-1">Tipo</label>
+                                <select id="con-tipo" class="form-select form-select-sm">
+                                    <option value="DESC">DESCUENTO</option>
+                                    <option value="REM">HABER (SUMA)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="xs-label mb-1">Porcentaje (%)</label>
+                                <input type="number" id="con-porcentaje" class="form-control form-control-sm" placeholder="11">
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-success btn-sm w-100" onclick="agregarConceptoGremio()">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="lista-conceptos-gremio" class="row g-2 bg-light p-2 rounded-3" style="min-height: 50px;">
+                            <!-- Conceptos aparecerán aquí -->
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer border-0 p-4 pt-0">
-                    <button type="submit" class="btn btn-dark fw-bold w-100">CREAR GREMIO</button>
+                <div class="modal-footer border-0 p-4">
+                    <button type="submit" class="btn btn-dark fw-bold w-100 py-3 shadow text-uppercase">Guardar Gremio Completo</button>
                 </div>
             </form>
         </div>
     </div>
+</div>
+
+<style>
+    .xs-label { font-size: 0.7rem; font-weight: bold; color: #666; text-transform: uppercase; }
+</style>
 
     <div class="modal fade" id="modalLiquidacion" tabindex="-1">
         <div class="modal-dialog">
