@@ -12,6 +12,7 @@ let listaParaImprimir = [];
 let categoriasTemporales = [];
 let conceptosTemporales = [];
 
+
 // --- LOGIN Y SEGURIDAD ---
 function iniciarSesion(e) {
     e.preventDefault();
@@ -364,7 +365,85 @@ function agregarCategoriaGremio() {
     
     renderizarCategoriasTemporales();
 }
+// --- AGREGAR CONCEPTO SIMPLE ---
+function agregarConceptoSimple() {
+    const nombre = document.getElementById('con-nombre').value;
+    const tipo = document.getElementById('con-tipo').value;
+    const porcentaje = document.getElementById('con-porcentaje').value;
 
+    if (!nombre || !porcentaje) return alert("Completá los datos");
+
+    conceptosTemporales.push({
+        nombre: nombre.toUpperCase(),
+        tipo: tipo,
+        porcentaje: parseFloat(porcentaje),
+        esCombinado: false,
+        indicesBase: [] // Va sobre el básico por defecto
+    });
+
+    document.getElementById('con-nombre').value = "";
+    document.getElementById('con-porcentaje').value = "";
+    renderizarConceptosTemporales();
+}
+
+// --- CREAR EL CONCEPTO COMBINADO ---
+function crearConceptoCombinado() {
+    const nombre = document.getElementById('comb-nombre').value;
+    const tipo = document.getElementById('comb-tipo').value;
+    const porcentaje = document.getElementById('comb-porcentaje').value;
+    
+    // Verificamos cuáles están tildados
+    const seleccionados = [];
+    conceptosTemporales.forEach((_, index) => {
+        const check = document.getElementById(`base-${index}`);
+        if (check && check.checked) seleccionados.push(index);
+    });
+
+    if (!nombre || !porcentaje || seleccionados.length === 0) {
+        return alert("Poné nombre, porcentaje y tildá al menos un concepto base.");
+    }
+
+    conceptosTemporales.push({
+        nombre: nombre.toUpperCase() + " (COMB)",
+        tipo: tipo,
+        porcentaje: parseFloat(porcentaje),
+        esCombinado: true,
+        indicesBase: seleccionados
+    });
+
+    // Limpiar campos de combinación
+    document.getElementById('comb-nombre').value = "";
+    document.getElementById('comb-porcentaje').value = "";
+    renderizarConceptosTemporales();
+}
+
+// --- RENDERIZAR TODO ---
+function renderizarConceptosTemporales() {
+    const lista = document.getElementById('lista-conceptos-gremio');
+    const base = document.getElementById('lista-conceptos-base');
+    if (!lista || !base) return;
+
+    // 1. Dibujamos los cuadraditos de la lista de abajo
+    lista.innerHTML = conceptosTemporales.map((c, index) => `
+        <div class="col-md-4">
+            <div class="p-2 border rounded ${c.esCombinado ? 'bg-warning-subtle' : 'bg-white'} shadow-sm position-relative">
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-1" style="font-size: 0.5rem;" onclick="eliminarConceptoTemporal(${index})"></button>
+                <div class="fw-bold small text-uppercase">${c.nombre}</div>
+                <div class="text-muted" style="font-size: 0.6rem;">${c.tipo}: ${c.porcentaje}%</div>
+            </div>
+        </div>
+    `).join('');
+
+    // 2. Actualizamos los checkboxes del "Paso 5" para que el usuario pueda elegir
+    base.innerHTML = conceptosTemporales.map((c, index) => `
+        <div class="form-check form-check-inline border rounded px-2 bg-white shadow-xs">
+            <input class="form-check-input" type="checkbox" id="base-${index}">
+            <label class="form-check-label small fw-bold" for="base-${index}">${c.nombre}</label>
+        </div>
+    `).join('');
+    
+    if (conceptosTemporales.length === 0) base.innerHTML = '<span class="text-muted small">No hay conceptos básicos.</span>';
+}
 function agregarConceptoGremio() {
     const n = document.getElementById('con-nombre').value;
     const t = document.getElementById('con-tipo').value;
@@ -480,15 +559,22 @@ function agregarCategoriaGremio() {
 }
 
 function renderizarConceptosTemporales() {
-    document.getElementById('lista-conceptos-gremio').innerHTML = conceptosTemporales.map((c, i) => `
+    const lista = document.getElementById('lista-conceptos-gremio');
+    if (!lista) return;
+
+    lista.innerHTML = conceptosTemporales.map((c, index) => `
         <div class="col-md-4">
-            <div class="p-2 border rounded bg-white shadow-sm position-relative border-start border-4 ${c.tipo === 'DESC' ? 'border-danger' : 'border-success'}">
-                <div class="fw-bold small">${c.nombre}</div>
-                <div class="text-muted" style="font-size:0.75rem">${c.tipo}: ${c.porcentaje}%</div>
-                <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="conceptosTemporales.splice(${i},1);renderizarConceptosTemporales()"></i>
+            <div class="p-2 border rounded bg-white shadow-sm position-relative">
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-1" style="font-size: 0.6rem;" onclick="eliminarConceptoTemporal(${index})"></button>
+                <div class="fw-bold small text-uppercase">${c.nombre}</div>
+                <div class="text-muted" style="font-size: 0.7rem;">${c.tipo}: ${c.porcentaje}%</div>
+                ${c.esCombinado ? '<span class="badge bg-info" style="font-size: 0.5rem;">Combinado</span>' : ''}
             </div>
         </div>
     `).join('');
+
+    // 🔥 ESTO ES LO QUE HACE QUE APAREZCAN ARRIBA PARA TILDAR
+    actualizarCheckboxesBase(); 
 }
 
 function eliminarConceptoTemporal(index) {
@@ -611,22 +697,26 @@ async function eliminarGremio(nombre) {
 
 // --- FUNCIÓN PARA EDITAR (Carga los datos en el modal) ---
 function prepararEdicionGremio(nombre, actividad, catsJson, consJson) {
-    // 1. Llenamos los campos básicos
-    document.getElementById('gre-nombre').value = nombre;
-    document.getElementById('gre-actividad').value = actividad;
+    // 1. Cargamos los datos básicos en los inputs del modal
+    // Usamos decodeURIComponent por si el nombre tiene espacios o tildes
+    document.getElementById('gre-nombre').value = decodeURIComponent(nombre);
+    document.getElementById('gre-actividad').value = decodeURIComponent(actividad);
 
-    // 2. Parseamos y cargamos las listas temporales
+    // 2. Limpiamos y cargamos las categorías y conceptos
     try {
         categoriasTemporales = JSON.parse(decodeURIComponent(catsJson));
         conceptosTemporales = JSON.parse(decodeURIComponent(consJson));
-        renderizarCategoriasTemporales();
-        renderizarConceptosTemporales();
     } catch (e) {
+        console.error("Error al parsear datos del gremio:", e);
         categoriasTemporales = [];
         conceptosTemporales = [];
     }
 
-    // 3. Abrimos el modal
+    // 3. Refrescamos las listas visuales y los checkboxes del Paso 5
+    renderizarCategoriasTemporales();
+    renderizarConceptosTemporales(); // Esta ya actualiza los checkboxes de combinación
+
+    // 4. Abrimos el modal manualmente
     const modal = new bootstrap.Modal(document.getElementById('modalGremio'));
     modal.show();
 }
@@ -644,3 +734,60 @@ document.addEventListener("DOMContentLoaded", () => {
         formGremio.onsubmit = guardarGremio;
     }
 });
+// Variable para guardar los IDs de los conceptos base seleccionados
+let conceptosBaseSeleccionados = [];
+
+// Función para actualizar los checkboxes en el modal
+function actualizarCheckboxesBase() {
+    const contenedor = document.getElementById('lista-conceptos-base');
+    if (!contenedor) return;
+
+    // Si no hay nada, mostramos el mensaje de ayuda
+    if (conceptosTemporales.length === 0) {
+        contenedor.innerHTML = '<span class="text-muted small italic">Agregá primero un concepto básico para poder combinarlo.</span>';
+        return;
+    }
+
+    // Si hay conceptos, dibujamos los checkboxes
+    contenedor.innerHTML = conceptosTemporales.map((c, index) => `
+        <div class="form-check form-check-inline bg-white border rounded px-2 py-1 shadow-sm" style="cursor: pointer;">
+            <input class="form-check-input" type="checkbox" value="${index}" id="base-${index}">
+            <label class="form-check-label small fw-bold" for="base-${index}" style="cursor: pointer;">
+                ${c.nombre}
+            </label>
+        </div>
+    `).join('');
+}
+
+// Modificamos la función de agregar concepto
+function agregarConceptoTemporal() {
+    const nombre = document.getElementById('con-nombre').value;
+    const tipo = document.getElementById('con-tipo').value;
+    const porcentaje = document.getElementById('con-porcentaje').value;
+    
+    // Capturamos cuáles checkboxes están tildados
+    const indicesBase = [];
+    conceptosTemporales.forEach((_, index) => {
+        if (document.getElementById(`base-${index}`)?.checked) {
+            indicesBase.push(index);
+        }
+    });
+
+    if (!nombre || !porcentaje) return alert("Completá nombre y porcentaje");
+
+    const nuevoConcepto = {
+        nombre: nombre.toUpperCase(),
+        tipo: tipo,
+        porcentaje: parseFloat(porcentaje),
+        esCombinado: indicesBase.length > 0,
+        indicesBase: indicesBase // Guardamos sobre qué conceptos se calcula
+    };
+
+    conceptosTemporales.push(nuevoConcepto);
+    
+    // Limpiamos campos y actualizamos visualización
+    document.getElementById('con-nombre').value = "";
+    document.getElementById('con-porcentaje').value = "";
+    renderizarConceptosTemporales();
+    actualizarCheckboxesBase(); // Actualizamos los checkboxes para el próximo concepto
+}
