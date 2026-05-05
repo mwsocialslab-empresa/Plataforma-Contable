@@ -2,7 +2,7 @@
    🔹 SCRIPT.JS: MOTOR RECONSTRUIDO v2.3 (SIN GREMIOS)
    ============================================================ */
 
-const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycby42YflS0XOQjYh_Z12M-4mksOxHZInft2WKV1Xzd90ae41eBqpvXgcScH_njqY2o3orQ/exec';
+const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbzHmiroU9gfyiRIG37vSP71cpJK5EkVrTzaAo7pcAjcZwEgYC05CZqy77s4E9Cr2gLrgg/exec';
 
 // --- ESTADOS GLOBALES ---
 let cacheEmpresas = [];
@@ -100,7 +100,43 @@ async function verDetalleEmpresa(cuit) {
     cargarEmpleadosEmpresa(cuit);
     cargarDatosMensualesEmpresa(); 
 }
+function abrirModalEmpresa() {
+    // Limpiamos el formulario para una nueva carga
+    document.getElementById('form-empresa').reset();
+    
+    // Si ya tenés gremios cargados, acá podrías llenar un select de gremios 
+    // en el modal de empresa si decidís agregar esa vinculación ahora.
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalEmpresa'));
+    modal.show();
+}
 
+async function guardarEmpresa(e) {
+    e.preventDefault();
+    const btn = e.submitter;
+    btn.disabled = true;
+
+    const datos = {
+        action: 'crearEmpresa',
+        empleador: document.getElementById('emp-empleador').value,
+        direccion: document.getElementById('emp-direccion').value,
+        cuit: document.getElementById('emp-cuit').value
+    };
+
+    try {
+        const resp = await fetch(URL_WEB_APP, { 
+            method: 'POST', 
+            body: JSON.stringify(datos) 
+        });
+        alert("✅ Empresa registrada");
+        bootstrap.Modal.getInstance(document.getElementById('modalEmpresa')).hide();
+        cargarEmpresas(); // Recarga la tabla de empresas
+    } catch (err) {
+        alert("Error al registrar empresa");
+    } finally {
+        btn.disabled = false;
+    }
+}
 /* ============================================================
    👤 GESTIÓN DE EMPLEADOS
    ============================================================ */
@@ -108,22 +144,54 @@ async function verDetalleEmpresa(cuit) {
 async function cargarEmpleadosEmpresa(cuit) {
     const cuerpo = document.getElementById('tabla-empleados-cuerpo');
     if (!cuerpo) return;
-    cuerpo.innerHTML = '<tr><td colspan="5" class="text-center">Cargando...</td></tr>';
+
+    cuerpo.innerHTML = '<tr><td colspan="5" class="text-center">Cargando empleados...</td></tr>';
+
     try {
         const resp = await fetch(`${URL_WEB_APP}?tabla=empleados&t=${Date.now()}`);
         cacheEmpleados = await resp.json();
+
+        // Filtrar empleados por el CUIT de la empresa activa (índice 9 en la hoja)
         const filtrados = cacheEmpleados.filter(em => (em[9] || "").toString().trim() === cuit.toString().trim());
-        cuerpo.innerHTML = filtrados.map(em => `
+
+        if (filtrados.length === 0) {
+            cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay empleados registrados en esta empresa.</td></tr>';
+            return;
+        }
+
+        cuerpo.innerHTML = filtrados.map(em => {
+            const nombre = em[1];
+            const cuil = em[2];
+            const tarea = em[4] || 'Sin Cargo';
+
+            return `
             <tr>
-                <td class="text-center d-none col-check"><input type="checkbox" class="form-check-input check-empleado" data-cuil="${em[2]}"></td>
-                <td class="fw-bold">${em[1]}</td>
-                <td>${em[2]}</td>
-                <td>${em[4] || 'Sin Cargo'}</td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarEmpleado('${em[2]}')"><i class="bi bi-trash"></i></button>
+                <td class="text-center d-none col-check">
+                    <input type="checkbox" class="form-check-input check-empleado" data-cuil="${cuil}">
                 </td>
-            </tr>`).join('');
-    } catch (e) { console.error(e); }
+                <td class="fw-bold">${nombre}</td>
+                <td>${cuil}</td>
+                <td>
+                    <span class="badge bg-light text-dark border">${tarea}</span>
+                </td>
+                <td class="text-end">
+                    <!-- BOTÓN EDITAR (LÁPIZ) -->
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editarEmpleado('${cuil}')" title="Editar Perfil">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
+                    
+                    <!-- BOTÓN ELIMINAR (TACHO) -->
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarEmpleado('${cuil}')" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
+
+    } catch (e) { 
+        console.error("Error al cargar empleados:", e);
+        cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al conectar con la base de datos.</td></tr>';
+    }
 }
 
 async function guardarEmpleado(e) {
@@ -131,7 +199,13 @@ async function guardarEmpleado(e) {
     if (!cuitEmpresaActiva) return;
     const btn = e.submitter;
     btn.disabled = true;
-    
+
+    // Recolectamos conceptos seleccionados
+    const conceptosSeleccionados = [];
+    document.querySelectorAll('.check-concepto-emp:checked').forEach(input => {
+        conceptosSeleccionados.push(JSON.parse(input.value));
+    });
+
     const datos = {
         action: 'crearEmpleado',
         legajo: document.getElementById('empl-legajo').value,
@@ -139,16 +213,18 @@ async function guardarEmpleado(e) {
         cuil: document.getElementById('empl-cuil').value,
         ingreso: document.getElementById('empl-ingreso').value,
         tarea: document.getElementById('empl-tarea').value,
-        bruto: document.getElementById('empl-bruto').value,
+        bruto: document.getElementById('empl-categoria').value, // Tomamos el valor de la categoría
         cuitEmpresa: cuitEmpresaActiva,
-        conceptos: "" // Se envía vacío por ahora al no haber gremios
+        gremio: document.getElementById('empl-gremio').value,
+        conceptos: JSON.stringify(conceptosSeleccionados) // Guardamos su perfil personalizado
     };
+
     try {
-        await fetch(URL_WEB_APP, { method: 'POST', mode: 'no-cors', body: JSON.stringify(datos) });
-        alert("✅ Empleado guardado");
+        const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(datos) });
+        alert("✅ Empleado guardado con perfil de gremio");
         bootstrap.Modal.getInstance(document.getElementById('modalEmpleado')).hide();
-        setTimeout(() => cargarEmpleadosEmpresa(cuitEmpresaActiva), 1000);
-    } catch (err) { alert("Error"); }
+        cargarEmpleadosEmpresa(cuitEmpresaActiva);
+    } catch (err) { alert("Error al guardar"); }
     finally { btn.disabled = false; }
 }
 
@@ -558,25 +634,6 @@ function agregarCategoriaGremio() {
     renderizarCategoriasTemporales();
 }
 
-function renderizarConceptosTemporales() {
-    const lista = document.getElementById('lista-conceptos-gremio');
-    if (!lista) return;
-
-    lista.innerHTML = conceptosTemporales.map((c, index) => `
-        <div class="col-md-4">
-            <div class="p-2 border rounded bg-white shadow-sm position-relative">
-                <button type="button" class="btn-close position-absolute top-0 end-0 m-1" style="font-size: 0.6rem;" onclick="eliminarConceptoTemporal(${index})"></button>
-                <div class="fw-bold small text-uppercase">${c.nombre}</div>
-                <div class="text-muted" style="font-size: 0.7rem;">${c.tipo}: ${c.porcentaje}%</div>
-                ${c.esCombinado ? '<span class="badge bg-info" style="font-size: 0.5rem;">Combinado</span>' : ''}
-            </div>
-        </div>
-    `).join('');
-
-    // 🔥 ESTO ES LO QUE HACE QUE APAREZCAN ARRIBA PARA TILDAR
-    actualizarCheckboxesBase(); 
-}
-
 function eliminarConceptoTemporal(index) {
     conceptosTemporales.splice(index, 1);
     renderizarConceptosTemporales();
@@ -598,20 +655,6 @@ function abrirModalGremio() {
     new bootstrap.Modal(document.getElementById('modalGremio')).show();
 }
 
-
-
-
-/* ============================================================
-   RE-ACTUALIZACIÓN DE GUARDAR GREMIO (PARA INCLUIR TODO)
-   ============================================================ */
-
-/* ============================================================
-   🏷️ GESTIÓN DE GREMIOS (CORREGIDO)
-   ============================================================ */
-
-/* ============================================================
-   🏷️ GESTIÓN DE GREMIOS: GUARDADO Y VISUALIZACIÓN
-   ============================================================ */
 
 async function guardarGremio(e) {
     e.preventDefault();
@@ -790,4 +833,201 @@ function agregarConceptoTemporal() {
     document.getElementById('con-porcentaje').value = "";
     renderizarConceptosTemporales();
     actualizarCheckboxesBase(); // Actualizamos los checkboxes para el próximo concepto
+}
+async function prepararModalEmpleado() {
+    const selectGremio = document.getElementById('empl-gremio');
+    if (!selectGremio) return;
+
+    selectGremio.innerHTML = '<option value="">Cargando gremios...</option>';
+
+    try {
+        const resp = await fetch(`${URL_WEB_APP}?tabla=gremios&t=${Date.now()}`);
+        const gremios = await resp.json();
+
+        // El primer campo es el nombre, el segundo la actividad, el tercero categorías JSON y el cuarto conceptos JSON
+        selectGremio.innerHTML = '<option value="">-- Seleccione un Gremio --</option>' + 
+            gremios.map(g => `
+                <option value="${g[0]}" 
+                        data-cats="${encodeURIComponent(g[2])}" 
+                        data-cons="${encodeURIComponent(g[3])}">
+                    ${g[0].toUpperCase()}
+                </option>`).join('');
+
+    } catch (e) {
+        console.error("Error cargando gremios:", e);
+        selectGremio.innerHTML = '<option value="">Error al cargar gremios</option>';
+    }
+}
+// Dentro de tu script.js, cuando renderices las opciones en el empleado:
+function actualizarOpcionesGremioEmpleado() {
+    const selectGremio = document.getElementById('empl-gremio');
+    const optionSeleccionada = selectGremio.options[selectGremio.selectedIndex];
+    const contenedor = document.getElementById('configuracion-gremio-empleado');
+
+    if (!optionSeleccionada || !optionSeleccionada.value) {
+        contenedor.innerHTML = '<p class="text-muted small italic mb-0">Seleccione un gremio para ver los cargos y conceptos.</p>';
+        return;
+    }
+
+    try {
+        // Recuperamos las categorías y conceptos del gremio (vienen del fetch de gremios)
+        const categorias = JSON.parse(decodeURIComponent(optionSeleccionada.dataset.cats));
+        const conceptos = JSON.parse(decodeURIComponent(optionSeleccionada.dataset.cons));
+
+        let html = `
+            <div class="row g-2 mb-3">
+                <div class="col-md-12">
+                    <label class="xs-label mb-1 text-primary">Cargo / Categoría del Gremio</label>
+                    <select id="empl-categoria" class="form-select form-select-sm fw-bold border-primary bg-light">
+                        <option value="">-- Seleccionar Cargo --</option>
+                        ${categorias.map(c => `<option value="${c.valor}">${c.nombre} ($${c.valor})</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <label class="xs-label mb-2 text-success">Conceptos de Liquidación (Tildá los que correspondan)</label>
+            <div class="row g-2">
+                ${conceptos.map((c, i) => `
+                    <div class="col-md-6">
+                        <div class="form-check border rounded p-2 bg-white small shadow-xs h-100">
+                            <input class="form-check-input check-concepto-emp" type="checkbox" 
+                                   value='${JSON.stringify(c)}' 
+                                   id="cep-${i}" checked>
+                            <label class="form-check-label fw-bold d-block" for="cep-${i}">
+                                ${c.nombre} 
+                                <br><small class="text-muted">${c.tipo} (${c.porcentaje}%) ${c.esCombinado ? '✨' : ''}</small>
+                            </label>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        contenedor.innerHTML = html;
+
+    } catch (e) {
+        console.error("Error al procesar datos del gremio:", e);
+        contenedor.innerHTML = '<div class="alert alert-danger small">Error al cargar la configuración del gremio.</div>';
+    }
+}
+// Agregá esto a tu script.js
+function abrirModalEmpleado() {
+    // Resetear el formulario para que esté limpio
+    const form = document.getElementById('form-empleado');
+    if (form) form.reset();
+    
+    // Limpiar el contenedor de conceptos dinámicos
+    const contenedor = document.getElementById('configuracion-gremio-empleado');
+    if (contenedor) contenedor.innerHTML = "";
+
+    // Cargar los gremios en el select antes de mostrar el modal
+    prepararModalEmpleado(); 
+
+    const modal = new bootstrap.Modal(document.getElementById('modalEmpleado'));
+    modal.show();
+}
+async function prepararEdicionEmpleado(cuil) {
+    // 1. Buscamos los datos del empleado en el caché
+    const emp = cacheEmpleados.find(e => e[2].toString() === cuil.toString());
+    if (!emp) return;
+
+    // 2. Abrimos el modal y cargamos los gremios primero
+    await prepararModalEmpleado(); 
+
+    // 3. Llenamos los datos básicos
+    document.getElementById('empl-legajo').value = emp[0];
+    document.getElementById('empl-nombre').value = emp[1];
+    document.getElementById('empl-cuil').value = emp[2];
+    document.getElementById('empl-ingreso').value = emp[3];
+    document.getElementById('empl-tarea').value = emp[4];
+    
+    // 4. Seleccionamos su gremio y disparamos el cambio para ver conceptos
+    const selectGremio = document.getElementById('empl-gremio');
+    selectGremio.value = emp[10]; // Asumiendo que el gremio está en la columna 10
+    
+    actualizarOpcionesGremioEmpleado(); // Esto dibuja los checks
+
+    // 5. Marcamos los checks según lo que el empleado ya tenía grabado
+    try {
+        const conceptosGuardados = JSON.parse(emp[11]); // Asumiendo columna 11
+        conceptosGuardados.forEach(cGuardado => {
+            // Buscamos el check que coincida con el nombre del concepto y lo marcamos
+            document.querySelectorAll('.check-concepto-emp').forEach(check => {
+                const cCheck = JSON.parse(check.value);
+                if (cCheck.nombre === cGuardado.nombre) {
+                    check.checked = true;
+                }
+            });
+        });
+    } catch (e) { console.warn("El empleado no tenía conceptos previos o formato inválido"); }
+
+    new bootstrap.Modal(document.getElementById('modalEmpleado')).show();
+}
+async function editarEmpleado(cuil) {
+    // 1. Buscamos el empleado en el cache que ya cargamos
+    // em[2] es el CUIL según tu función de carga
+    const empleado = cacheEmpleados.find(em => em[2].toString().trim() === cuil.toString().trim());
+    
+    if (!empleado) {
+        alert("No se encontró el empleado localmente.");
+        return;
+    }
+
+    // 2. Abrir el modal y cargar gremios
+    await prepararModalEmpleado();
+
+    // 3. Llenar los campos básicos (según los índices de tu hoja)
+    document.getElementById('empl-legajo').value = empleado[0] || "";
+    document.getElementById('empl-nombre').value = empleado[1] || "";
+    document.getElementById('empl-cuil').value = empleado[2] || "";
+    document.getElementById('empl-ingreso').value = empleado[3] || "";
+    document.getElementById('empl-tarea').value = empleado[4] || "";
+
+    // 4. Seleccionar el gremio (asumiendo que está en el índice 10 según el Apps Script)
+    const selectGremio = document.getElementById('empl-gremio');
+    if (empleado[10]) {
+        selectGremio.value = empleado[10];
+        // Disparar manualmente el cambio para que cargue categorías y conceptos
+        actualizarOpcionesGremioEmpleado();
+        
+        // 5. Esperar un momento a que se cree el HTML de categorías para asignar la correcta
+        setTimeout(() => {
+            const selectCat = document.getElementById('empl-categoria');
+            if (selectCat && empleado[5]) { // Índice 5 es el básico/categoría
+                selectCat.value = empleado[5];
+            }
+        }, 150);
+    }
+
+    // 6. Mostrar el modal (usando Bootstrap)
+    const modalElement = document.getElementById('modalEmpleado');
+    const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+    modal.show();
+}
+async function eliminarEmpleado(cuil) {
+    if (!confirm(`¿Estás seguro de eliminar al empleado con CUIL ${cuil}?`)) return;
+
+    try {
+        const datos = {
+            action: 'eliminarEmpleado', // Asegúrate que tu doPost tenga este caso
+            cuil: cuil
+        };
+
+        const resp = await fetch(URL_WEB_APP, {
+            method: 'POST',
+            body: JSON.stringify(datos)
+        });
+
+        const texto = await resp.text();
+        if (texto === "OK") {
+            alert("Empleado eliminado");
+            // Recargar la tabla (usamos la variable global del CUIT de la empresa actual)
+            cargarEmpleadosEmpresa(cuitEmpresaActiva); 
+        } else {
+            alert("Error: " + texto);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error de conexión al eliminar.");
+    }
 }
