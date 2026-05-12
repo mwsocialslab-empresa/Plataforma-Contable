@@ -315,7 +315,7 @@ function imprimirRecibo() {
             .text-center { text-align: center; }
             .tabla-conceptos td { border-top: none; border-bottom: none; vertical-align: middle; }
             .border-bottom { border-bottom: 1px solid black !important; }
-            .relleno-lineas { height: 140px; vertical-align: top !important; }
+            .relleno-lineas { height: 100px; vertical-align: top !important; }
             .texto-legal { font-size: 7pt; margin-top: 5px; text-align: justify; }
             @media print { body { background: white; } .no-print { display: none; } .a4-container { margin: 0; box-shadow: none; } }
         </style>
@@ -328,10 +328,67 @@ function imprimirRecibo() {
         const tiposCopia = ["ORIGINAL PARA EL EMPLEADOR", "DUPLICADO PARA EL EMPLEADO"];
 
         tiposCopia.forEach(tipo => {
+            // Inicializamos acumuladores para cada copia
             let totalRemun = brutoValue;
             let totalNoRemun = 0;
             let totalDesc = 0;
-            let totalNeto = totalRemun - totalDesc;
+            
+            // Fila inicial: Sueldo Básico
+            let filasHTML = `
+                <tr>
+                    <td>SUELDO BÁSICO</td>
+                    <td class="text-center">30</td>
+                    <td class="text-center">-</td>
+                    <td class="text-right">$ ${brutoValue.toLocaleString('es-AR')}</td>
+                    <td></td>
+                    <td></td>
+                </tr>`;
+
+            // Procesar conceptos del empleado (almacenados en emp[11])
+            try {
+                const conceptosEmp = JSON.parse(emp[11] || "[]");
+                conceptosEmp.forEach(c => {
+                    let valorCalculado = 0;
+                    
+                    // Cálculo según el MODO
+                    if (c.modo === 'porcentaje') {
+                        valorCalculado = brutoValue * (parseFloat(c.valor) / 100);
+                    } else {
+                        valorCalculado = parseFloat(c.valor);
+                    }
+
+                    let colRemun = "", colDesc = "", colNoRemun = "";
+                    const formatoMonto = `$ ${valorCalculado.toLocaleString('es-AR')}`;
+
+                    // Clasificación según TIPO
+                    if (c.tipo === 'REM') {
+                        colRemun = formatoMonto;
+                        totalRemun += valorCalculado;
+                    } else if (c.tipo === 'DESC') {
+                        colDesc = formatoMonto;
+                        totalDesc += valorCalculado;
+                    } else if (c.tipo === 'NO_REM') {
+                        colNoRemun = formatoMonto;
+                        totalNoRemun += valorCalculado;
+                    }
+
+                    // Definir qué mostrar en la columna "%" o "Base"
+                    const visualBase = c.modo === 'porcentaje' ? '-' : c.valor;
+                    const visualVar = c.modo === 'porcentaje' ? c.valor + '%' : (c.modo === 'monto' ? '$' : 'u');
+
+                    filasHTML += `
+                        <tr>
+                            <td>${c.nombre}</td>
+                            <td class="text-center">${visualBase}</td>
+                            <td class="text-center">${visualVar}</td>
+                            <td class="text-right">${colRemun}</td>
+                            <td class="text-right">${colDesc}</td>
+                            <td class="text-right">${colNoRemun}</td>
+                        </tr>`;
+                });
+            } catch (e) { console.error("Error en conceptos:", e); }
+
+            let totalNeto = (totalRemun + totalNoRemun) - totalDesc;
 
             contenidoHTML += `
             <div class="a4-container">
@@ -349,45 +406,53 @@ function imprimirRecibo() {
                     </tr>
                 </table>
 
-                <table>
+                <table style="margin-top:5px;">
                     <tr class="bg-gray"><td>Nombre y Apellido</td><td>Fecha Ingreso</td><td>CUIL</td><td>Caja de Ahorro</td><td>Sueldo Básico</td></tr>
                     <tr class="text-center"><td>${emp[1]}</td><td>${emp[3]}</td><td>${emp[2]}</td><td>${banco}</td><td>$ ${brutoValue.toLocaleString('es-AR')}</td></tr>
                 </table>
 
                 <table>
-                    <tr class="bg-gray"><td>Fecha Depósito</td><td>Banco</td><td>Último Depósito</td><td>Calificación</td></tr>
-                    <tr class="text-center"><td>${fechaPago}</td><td>${banco}</td><td>${fechaPago}</td><td>${emp[4] || 'Administración'}</td></tr>
+                    <tr class="bg-gray"><td>Fecha Depósito</td><td>Banco</td><td>Período Liquidado</td><td>Calificación</td></tr>
+                    <tr class="text-center"><td>${fechaPago}</td><td>${banco}</td><td>${periodo}</td><td>${emp[4] || 'Administración'}</td></tr>
                 </table>
 
-                <table class="tabla-conceptos">
+                <table class="tabla-conceptos" style="margin-top:5px;">
                     <tr class="bg-gray">
-                        <td style="width: 40%;">Conceptos</td><td style="width: 8%;">Base</td><td style="width: 8%;">%</td>
+                        <td style="width: 40%;">Conceptos</td><td style="width: 8%;">Base</td><td style="width: 8%;">% / Unid</td>
                         <td style="width: 14%;">Remun.</td><td style="width: 14%;">Desc.</td><td style="width: 16%;">No Remun.</td>
                     </tr>
-                    <tr>
-                        <td>Sueldo Básico</td><td class="text-center">30</td><td class="text-center">-</td>
-                        <td class="text-right">$ ${brutoValue.toLocaleString('es-AR')}</td><td></td><td></td>
-                    </tr>
+                    ${filasHTML}
                     <tr class="relleno-lineas border-bottom"><td></td><td></td><td></td><td></td><td></td><td></td></tr>
                 </table>
 
                 <table>
                     <tr>
-                        <td rowspan="2" style="width:56%; border:none;"></td>
-                        <td class="bg-gray" style="width:24%;">Total Bruto</td>
-                        <td class="text-right" style="width:20%; font-weight:bold;">$ ${totalRemun.toLocaleString('es-AR')}</td>
+                        <td rowspan="3" style="width:56%; border:none; font-size:7pt; vertical-align:top; padding-top:5px;">
+                            <strong>PERÍODO:</strong> ${periodo}
+                        </td>
+                        <td class="bg-gray" style="width:24%;">Total Remun.</td>
+                        <td class="text-right" style="width:20%;">$ ${totalRemun.toLocaleString('es-AR')}</td>
                     </tr>
                     <tr>
-                        <td class="bg-gray">TOTAL NETO</td>
+                        <td class="bg-gray">Total No Remun.</td>
+                        <td class="text-right">$ ${totalNoRemun.toLocaleString('es-AR')}</td>
+                    </tr>
+                    <tr>
+                        <td class="bg-gray">Total Retenc.</td>
+                        <td class="text-right">$ ${totalDesc.toLocaleString('es-AR')}</td>
+                    </tr>
+                    <tr>
+                        <td style="border:none;"></td>
+                        <td class="bg-gray" style="font-size:10pt;">TOTAL NETO</td>
                         <td class="text-right" style="font-size:10pt; font-weight:bold; background:#eee;">$ ${totalNeto.toLocaleString('es-AR')}</td>
                     </tr>
                 </table>
 
-                <table style="margin-top:5px; border:none;">
+                <table style="margin-top:10px; border:none;">
                     <tr>
                         <td style="width: 60%; border:none;">
                             <div style="font-weight:bold; font-size:8pt;">SON: ${totalNeto.toLocaleString('es-AR')} PESOS</div>
-                            <div class="texto-legal">Recibí conforme el importe de esta liquidación.</div>
+                            <div class="texto-legal">Art. 12 Ley 17.250: Declaro bajo juramento que los aportes y contribuciones con destino a los organismos de la Seguridad Social correspondientes a los períodos liquidados fueron depositados.</div>
                         </td>
                         <td style="width: 40%; border:none; text-align:center; vertical-align:bottom;">
                             <div style="border-top: 1px solid black; margin-top:40px; font-size:8pt;">Firma del Empleado</div>
@@ -423,7 +488,24 @@ function toggleTodosEmpleados(source) {
 /* ============================================================
    🏷️ NUEVA GESTIÓN DE GREMIOS (PASOS 1, 2 y 3)
    ============================================================ */
+function actualizarPlaceholderValor() {
+    const modo = document.getElementById('con-modo').value;
+    const input = document.getElementById('con-valor');
+    const label = document.getElementById('label-con-valor');
+    
+    if (!input || !label) return; // Seguridad por si no cargó el DOM
 
+    if (modo === 'porcentaje') {
+        input.placeholder = "Ej: 11";
+        label.innerText = "VALOR (%)";
+    } else if (modo === 'monto') {
+        input.placeholder = "Ej: 5000";
+        label.innerText = "MONTO ($)";
+    } else {
+        input.placeholder = "Ej: 1";
+        label.innerText = "CANTIDAD (#)";
+    }
+}
 // Para guardar categorías antes de enviar el form
 
 function agregarCategoriaGremio() {
@@ -445,20 +527,22 @@ function agregarCategoriaGremio() {
 function agregarConceptoSimple() {
     const nombre = document.getElementById('con-nombre').value;
     const tipo = document.getElementById('con-tipo').value;
-    const porcentaje = document.getElementById('con-porcentaje').value;
+    const modo = document.getElementById('con-modo').value; // porcentaje, monto, unidad
+    const valor = document.getElementById('con-valor').value;
 
-    if (!nombre || !porcentaje) return alert("Completá los datos");
+    if (!nombre || !valor) return alert("Completá los datos");
 
     conceptosTemporales.push({
         nombre: nombre.toUpperCase(),
         tipo: tipo,
-        porcentaje: parseFloat(porcentaje),
+        modo: modo,
+        valor: parseFloat(valor),
         esCombinado: false,
-        indicesBase: [] // Va sobre el básico por defecto
+        indicesBase: [] 
     });
 
     document.getElementById('con-nombre').value = "";
-    document.getElementById('con-porcentaje').value = "";
+    document.getElementById('con-valor').value = "";
     renderizarConceptosTemporales();
 }
 
@@ -466,30 +550,30 @@ function agregarConceptoSimple() {
 function crearConceptoCombinado() {
     const nombre = document.getElementById('comb-nombre').value;
     const tipo = document.getElementById('comb-tipo').value;
-    const porcentaje = document.getElementById('comb-porcentaje').value;
+    const modo = document.getElementById('comb-modo').value;
+    const valor = document.getElementById('comb-valor').value;
     
-    // Verificamos cuáles están tildados
     const seleccionados = [];
     conceptosTemporales.forEach((_, index) => {
         const check = document.getElementById(`base-${index}`);
         if (check && check.checked) seleccionados.push(index);
     });
 
-    if (!nombre || !porcentaje || seleccionados.length === 0) {
-        return alert("Poné nombre, porcentaje y tildá al menos un concepto base.");
+    if (!nombre || !valor || seleccionados.length === 0) {
+        return alert("Poné nombre, valor y tildá al menos un concepto base.");
     }
 
     conceptosTemporales.push({
         nombre: nombre.toUpperCase() + " (COMB)",
         tipo: tipo,
-        porcentaje: parseFloat(porcentaje),
+        modo: modo,
+        valor: parseFloat(valor),
         esCombinado: true,
         indicesBase: seleccionados
     });
 
-    // Limpiar campos de combinación
     document.getElementById('comb-nombre').value = "";
-    document.getElementById('comb-porcentaje').value = "";
+    document.getElementById('comb-valor').value = "";
     renderizarConceptosTemporales();
 }
 
@@ -499,18 +583,21 @@ function renderizarConceptosTemporales() {
     const base = document.getElementById('lista-conceptos-base');
     if (!lista || !base) return;
 
-    // 1. Dibujamos los cuadraditos de la lista de abajo
-    lista.innerHTML = conceptosTemporales.map((c, index) => `
+    lista.innerHTML = conceptosTemporales.map((c, index) => {
+        // Determinamos el símbolo visual
+        const simbolo = c.modo === 'porcentaje' ? '%' : (c.modo === 'monto' ? '$' : 'u');
+        const valorVisual = c.modo === 'monto' ? `${simbolo}${c.valor}` : `${c.valor}${simbolo}`;
+
+        return `
         <div class="col-md-4">
             <div class="p-2 border rounded ${c.esCombinado ? 'bg-warning-subtle' : 'bg-white'} shadow-sm position-relative">
                 <button type="button" class="btn-close position-absolute top-0 end-0 m-1" style="font-size: 0.5rem;" onclick="eliminarConceptoTemporal(${index})"></button>
                 <div class="fw-bold small text-uppercase">${c.nombre}</div>
-                <div class="text-muted" style="font-size: 0.6rem;">${c.tipo}: ${c.porcentaje}%</div>
+                <div class="text-muted" style="font-size: 0.6rem;">${c.tipo}: ${valorVisual}</div>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 
-    // 2. Actualizamos los checkboxes del "Paso 5" para que el usuario pueda elegir
     base.innerHTML = conceptosTemporales.map((c, index) => `
         <div class="form-check form-check-inline border rounded px-2 bg-white shadow-xs">
             <input class="form-check-input" type="checkbox" id="base-${index}">
@@ -803,36 +890,27 @@ function actualizarCheckboxesBase() {
 }
 
 // Modificamos la función de agregar concepto
-function agregarConceptoTemporal() {
+// Cambiamos el nombre de agregarConceptoSimple a agregarConceptoTemporal
+function agregarConceptoTemporal() { 
     const nombre = document.getElementById('con-nombre').value;
     const tipo = document.getElementById('con-tipo').value;
-    const porcentaje = document.getElementById('con-porcentaje').value;
-    
-    // Capturamos cuáles checkboxes están tildados
-    const indicesBase = [];
-    conceptosTemporales.forEach((_, index) => {
-        if (document.getElementById(`base-${index}`)?.checked) {
-            indicesBase.push(index);
-        }
-    });
+    const modo = document.getElementById('con-modo').value; 
+    const valor = document.getElementById('con-valor').value;
 
-    if (!nombre || !porcentaje) return alert("Completá nombre y porcentaje");
+    if (!nombre || !valor) return alert("Completá los datos");
 
-    const nuevoConcepto = {
+    conceptosTemporales.push({
         nombre: nombre.toUpperCase(),
         tipo: tipo,
-        porcentaje: parseFloat(porcentaje),
-        esCombinado: indicesBase.length > 0,
-        indicesBase: indicesBase // Guardamos sobre qué conceptos se calcula
-    };
+        modo: modo,
+        valor: parseFloat(valor),
+        esCombinado: false,
+        indicesBase: [] 
+    });
 
-    conceptosTemporales.push(nuevoConcepto);
-    
-    // Limpiamos campos y actualizamos visualización
     document.getElementById('con-nombre').value = "";
-    document.getElementById('con-porcentaje').value = "";
+    document.getElementById('con-valor').value = "";
     renderizarConceptosTemporales();
-    actualizarCheckboxesBase(); // Actualizamos los checkboxes para el próximo concepto
 }
 async function prepararModalEmpleado() {
     const selectGremio = document.getElementById('empl-gremio');
@@ -870,7 +948,7 @@ function actualizarOpcionesGremioEmpleado() {
     }
 
     try {
-        // Recuperamos las categorías y conceptos del gremio (vienen del fetch de gremios)
+        // Recuperamos las categorías y conceptos del gremio
         const categorias = JSON.parse(decodeURIComponent(optionSeleccionada.dataset.cats));
         const conceptos = JSON.parse(decodeURIComponent(optionSeleccionada.dataset.cons));
 
@@ -880,14 +958,19 @@ function actualizarOpcionesGremioEmpleado() {
                     <label class="xs-label mb-1 text-primary">Cargo / Categoría del Gremio</label>
                     <select id="empl-categoria" class="form-select form-select-sm fw-bold border-primary bg-light">
                         <option value="">-- Seleccionar Cargo --</option>
-                        ${categorias.map(c => `<option value="${c.valor}">${c.nombre} ($${c.valor})</option>`).join('')}
+                        ${categorias.map(c => `<option value="${c.valor}">${c.nombre} ($${parseFloat(c.valor).toLocaleString('es-AR')})</option>`).join('')}
                     </select>
                 </div>
             </div>
 
             <label class="xs-label mb-2 text-success">Conceptos de Liquidación (Tildá los que correspondan)</label>
             <div class="row g-2">
-                ${conceptos.map((c, i) => `
+                ${conceptos.map((c, i) => {
+                    // Lógica para determinar el símbolo visual según el modo
+                    const simbolo = c.modo === 'porcentaje' ? '%' : (c.modo === 'monto' ? '$' : 'u');
+                    const valorFormateado = c.modo === 'monto' ? `${simbolo}${c.valor}` : `${c.valor}${simbolo}`;
+                    
+                    return `
                     <div class="col-md-6">
                         <div class="form-check border rounded p-2 bg-white small shadow-xs h-100">
                             <input class="form-check-input check-concepto-emp" type="checkbox" 
@@ -895,11 +978,11 @@ function actualizarOpcionesGremioEmpleado() {
                                    id="cep-${i}" checked>
                             <label class="form-check-label fw-bold d-block" for="cep-${i}">
                                 ${c.nombre} 
-                                <br><small class="text-muted">${c.tipo} (${c.porcentaje}%) ${c.esCombinado ? '✨' : ''}</small>
+                                <br><small class="text-muted">${c.tipo} (${valorFormateado}) ${c.esCombinado ? '✨' : ''}</small>
                             </label>
                         </div>
-                    </div>
-                `).join('')}
+                    </div>`;
+                }).join('')}
             </div>
         `;
 

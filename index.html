@@ -301,15 +301,14 @@
                         <div id="lista-categorias-gremio" class="row g-2 bg-light p-2 rounded-3" style="min-height: 50px;"></div>
                     </div>
 
-                    <!-- PASO 4: Conceptos Simples -->
                     <div class="mb-4">
                         <h6 class="fw-bold text-success border-bottom pb-2">CONCEPTOS SIMPLES (BÁSICOS)</h6>
                         <div class="row g-2 mb-3 align-items-end p-2 border rounded shadow-sm bg-white">
-                            <div class="col-md-5">
+                            <div class="col-md-4">
                                 <label class="xs-label mb-1 fw-bold">Nombre Concepto</label>
                                 <input type="text" id="con-nombre" class="form-control form-control-sm" placeholder="Ej: Jubilación">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="xs-label mb-1 fw-bold">Tipo</label>
                                 <select id="con-tipo" class="form-select form-select-sm">
                                     <option value="REM">Remunerativo (+)</option>
@@ -318,11 +317,19 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <label class="xs-label mb-1 fw-bold">%</label>
-                                <input type="number" id="con-porcentaje" class="form-control form-control-sm" placeholder="11">
+                                <label class="xs-label mb-1 fw-bold">Modo</label>
+                                <select id="con-modo" class="form-select form-select-sm" onchange="actualizarPlaceholderValor()">
+                                    <option value="porcentaje">% Porcentaje</option>
+                                    <option value="monto">$ Monto Fijo</option>
+                                    <option value="unidad"># Cantidad</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label id="label-con-valor" class="xs-label mb-1 fw-bold">Valor</label>
+                                <input type="number" id="con-valor" class="form-control form-control-sm" placeholder="0.00">
                             </div>
                             <div class="col-md-1">
-                                <button type="button" class="btn btn-success btn-sm w-100" onclick="agregarConceptoSimple()">
+                                <button type="button" class="btn btn-success btn-sm w-100" onclick="agregarConceptoTemporal()">
                                     <i class="bi bi-plus-lg"></i>
                                 </button>
                             </div>
@@ -339,12 +346,13 @@
                             <span class="text-muted small">Cargá conceptos en el Paso 4 para verlos aquí.</span>
                         </div>
 
+                        <!-- PASO 5: Fila de inputs del concepto combinado -->
                         <div class="row g-2 align-items-end border-top pt-3">
-                            <div class="col-md-5">
+                            <div class="col-md-4">
                                 <label class="xs-label mb-1 fw-bold">Nombre de Combinación</label>
                                 <input type="text" id="comb-nombre" class="form-control form-control-sm" placeholder="Ej: Adicional Especial">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="xs-label mb-1 fw-bold">Tipo</label>
                                 <select id="comb-tipo" class="form-select form-select-sm">
                                     <option value="REM">Remunerativo (+)</option>
@@ -352,8 +360,15 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <label class="xs-label mb-1 fw-bold">% Final</label>
-                                <input type="number" id="comb-porcentaje" class="form-control form-control-sm" placeholder="5">
+                                <label class="xs-label mb-1 fw-bold">Modo</label>
+                                <select id="comb-modo" class="form-select form-select-sm">
+                                    <option value="porcentaje">% Porcentaje</option>
+                                    <option value="monto">$ Monto Fijo</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="xs-label mb-1 fw-bold">Valor Final</label>
+                                <input type="number" id="comb-valor" class="form-control form-control-sm" placeholder="0.00">
                             </div>
                             <div class="col-md-1">
                                 <button type="button" class="btn btn-warning btn-sm w-100" onclick="crearConceptoCombinado()">
