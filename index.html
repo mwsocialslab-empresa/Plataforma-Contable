@@ -261,14 +261,15 @@
 <div class="modal fade" id="modalGremio" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 rounded-4 shadow-lg">
-            <form id="form-gremio">
+            <form id="form-gremio" onsubmit="guardarGremio(event)">
+                <input type="hidden" id="gre-nombre-original" value="">
+                
                 <div class="modal-header bg-dark text-white border-0 p-4">
                     <h5 class="modal-title fw-bold"><i class="bi bi-person-badge me-2"></i>CONFIGURAR GREMIO</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 
                 <div class="modal-body p-4">
-                    <!-- PASO 1: Datos Básicos -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label class="small fw-bold text-uppercase">Nombre del Gremio</label>
@@ -280,7 +281,6 @@
                         </div>
                     </div>
 
-                    <!-- PASO 2 y 3: Categorías -->
                     <div class="mb-4">
                         <h6 class="fw-bold text-primary border-bottom pb-2">CATEGORÍAS Y VALORES</h6>
                         <div class="row g-2 mb-3 align-items-end p-2 border rounded shadow-sm">
@@ -344,7 +344,6 @@
                         <div id="lista-conceptos-gremio" class="row g-2 bg-light p-2 rounded-3 mb-4"></div>
                     </div>
 
-                    <!-- PASO 5: Conceptos Combinados -->
                     <div class="mb-2 p-3 border border-warning rounded shadow-sm bg-white">
                         <h6 class="fw-bold text-warning border-bottom pb-2 text-uppercase">Crear Concepto Combinado</h6>
                         <p class="small text-muted mb-2 italic">Tildá los conceptos que se suman para formar la nueva base:</p>
@@ -353,7 +352,6 @@
                             <span class="text-muted small">Cargá conceptos en el Paso 4 para verlos aquí.</span>
                         </div>
 
-                        <!-- PASO 5: Fila de inputs del concepto combinado -->
                         <div class="row g-2 align-items-end border-top pt-3">
                             <div class="col-md-4">
                                 <label class="xs-label mb-1 fw-bold">Nombre de Combinación</label>
@@ -383,6 +381,7 @@
                                 </button>
                             </div>
                         </div>
+                        <div id="lista-conceptos-combinados" class="row g-2 mt-3 border-top pt-3"></div>
                     </div>
                 </div>
 
@@ -425,7 +424,23 @@
             </div>
         </div>
     </div>
-
+    <div class="modal fade" id="modalConfirmarEliminar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 rounded-4 shadow">
+                <div class="modal-body p-4 text-center">
+                    <div class="text-danger mb-3">
+                        <i class="bi bi-exclamation-circle" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="fw-bold">¿Eliminar empleado?</h5>
+                    <p class="text-muted small mb-4">Esta acción no se puede deshacer. ¿Seguro que deseas continuar?</p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="button" class="btn btn-light fw-bold w-50" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" id="btn-ejecutar-eliminar" class="btn btn-danger fw-bold w-50" onclick="ejecutarEliminacionEmpleado()">Eliminar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
 </body>
