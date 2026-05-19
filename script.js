@@ -238,36 +238,30 @@ async function cargarEmpleadosEmpresa(cuit) {
     const cuerpo = document.getElementById('tabla-empleados-cuerpo');
     if (!cuerpo) return;
 
-    // 1. Ponemos el cartel de carga real
-    cuerpo.innerHTML = '<tr><td colspan="5" class="text-center">Cargando empleados desde la base de datos...</td></tr>';
+    cuerpo.innerHTML = '<tr><td colspan="5" class="text-center">Cargando empleados...</td></tr>';
 
     try {
-        // 2. Conexión real con tu URL actual de Apps Script
         const resp = await fetch(`${URL_WEB_APP}?tabla=empleados&t=${Date.now()}`);
         cacheEmpleados = await resp.json();
 
-        // Validación de seguridad por si la respuesta no es un array limpio
         if (!Array.isArray(cacheEmpleados)) {
-            cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de formato en la respuesta del servidor.</td></tr>';
+            cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de formato.</td></tr>';
             return;
         }
 
         const cuitBuscado = cuit.toString().trim();
 
-        // 3. MOTOR ULTRA-ROBUSTO: Busca en el índice 9 (columna J) y si Sheets achicó la fila, barre celda por celda
+        // Buscamos empleados asociados al CUIT en el índice 9 (columna J)
         const filtrados = cacheEmpleados.filter(em => {
             if (!em || !Array.isArray(em)) return false;
-            if ((em[9] || "").toString().trim() === cuitBuscado) return true;
-            return em.some(celda => celda && celda.toString().trim() === cuitBuscado);
+            return (em[9] || "").toString().trim() === cuitBuscado;
         });
 
-        // 4. Si realmente no hay nadie asignado a ese CUIT
         if (filtrados.length === 0) {
-            cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay empleados registrados en esta empresa.</td></tr>';
+            cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay empleados registrados.</td></tr>';
             return;
         }
 
-        // 5. Renderizado final en la tabla
         cuerpo.innerHTML = filtrados.map(em => {
             const nombre = em[1] || 'Sin Nombre';
             const cuil = em[2] || '---';
@@ -275,28 +269,22 @@ async function cargarEmpleadosEmpresa(cuit) {
 
             return `
             <tr>
-                <td class="text-center d-none col-check">
+                <td class="text-center col-check d-none">
                     <input type="checkbox" class="form-check-input check-empleado" data-cuil="${cuil}">
                 </td>
                 <td class="fw-bold text-uppercase">${nombre}</td>
                 <td>${cuil}</td>
-                <td>
-                    <span class="badge bg-light text-dark border">${tarea}</span>
-                </td>
+                <td><span class="badge bg-light text-dark border">${tarea}</span></td>
                 <td class="text-end pe-3">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editarEmpleado('${cuil}')" title="Editar Perfil">
-                        <i class="bi bi-pencil-square"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarEmpleado('${cuil}')" title="Eliminar">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editarEmpleado('${cuil}')"><i class="bi bi-pencil-square"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarEmpleado('${cuil}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>`;
         }).join('');
 
     } catch (e) { 
-        console.error("Error al cargar empleados reales:", e);
-        cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de conexión con Google Sheets. Verificá la URL.</td></tr>';
+        console.error("Error al cargar empleados:", e);
+        cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de conexión.</td></tr>';
     }
 }
 
@@ -550,9 +538,11 @@ function habilitarSeleccionLiquidacion() {
 }
 
 function resetearVistaLiquidacion() {
+    // 1. Ocultar columnas de selección
     document.getElementById('th-check-header')?.classList.add('d-none');
     document.querySelectorAll('.col-check').forEach(td => td.classList.add('d-none'));
 
+    // 2. Restaurar botón principal
     const btnLiq = document.getElementById('btn-habilitar-liq');
     if (btnLiq) {
         btnLiq.innerHTML = '<i class="bi bi-calculator me-1"></i> LIQUIDAR SUELDO';
@@ -560,38 +550,18 @@ function resetearVistaLiquidacion() {
         btnLiq.setAttribute('onclick', 'habilitarSeleccionLiquidacion()');
     }
 
-    // Si no lo encuentra, pasa de largo limpiamente
+    // 3. Ocultar botón Cancelar
     document.getElementById('btn-cancelar-liq')?.classList.add('d-none');
 
+    // 4. Limpiar todos los checkboxes (fila e individual)
     document.querySelectorAll('.check-empleado').forEach(chk => chk.checked = false);
-    const mainCheck = document.querySelector('#th-check-header input');
-    if (mainCheck) mainCheck.checked = false;
-}
-
-function resetearVistaLiquidacion() {
-    // Ocultamos la columna de checkboxes de manera limpia
-    const thHeader = document.getElementById('th-check-header');
-    if (thHeader) thHeader.classList.add('d-none');
     
-    document.querySelectorAll('.col-check').forEach(td => td.classList.add('d-none'));
-
-    // Restauramos el botón principal a su estado natural
-    const btnLiq = document.getElementById('btn-habilitar-liq');
-    if (btnLiq) {
-        btnLiq.innerHTML = '<i class="bi bi-calculator me-1"></i> LIQUIDAR SUELDO';
-        btnLiq.className = 'btn btn-warning fw-bold btn-sm';
-        btnLiq.setAttribute('onclick', 'habilitarSeleccionLiquidacion()');
-    }
-
-    // 🔴 SOLUCIÓN PROBLEMA 3: Ocultamos el botón Cancelar sin romper el flujo
-    const btnCancel = document.getElementById('btn-cancelar-liq');
-    if (btnCancel) btnCancel.classList.add('d-none');
-
-    // Desmarcamos todos los checks por limpieza
-    document.querySelectorAll('.check-empleado').forEach(chk => chk.checked = false);
-    const mainCheck = document.querySelector('#th-check-header input');
+    // Limpiar el checkbox maestro (el del encabezado)
+    const mainCheck = document.getElementById('check-todos');
     if (mainCheck) mainCheck.checked = false;
 }
+
+
 
 function toggleTodosEmpleados(masterInput) {
     document.querySelectorAll('.check-empleado').forEach(chk => {
