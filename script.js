@@ -602,7 +602,7 @@ function toggleTodosEmpleados(masterInput) {
 function procesarLoteLiquidacion() {
     const seleccionados = [];
     document.querySelectorAll('.check-empleado:checked').forEach(chk => {
-        seleccionados.push(chk.dataset.cuil);
+        seleccionados.push(chk.dataset.cuil.toString().trim());
     });
 
     if (seleccionados.length === 0) {
@@ -610,38 +610,108 @@ function procesarLoteLiquidacion() {
         return;
     }
 
-    // Filtramos la lista de empleados reales a imprimir
-    listaParaImprimir = cacheEmpleados.filter(em => seleccionados.includes(em[2]));
+    // Filtramos la lista de empleados
+    listaParaImprimir = cacheEmpleados.filter(em => seleccionados.includes((em[2] || "").toString().trim()));
     
-    // Armamos el resumen en el modal previo
     const contenedor = document.getElementById('contenedor-conceptos');
     if (!contenedor) return;
 
-    contenedor.innerHTML = listaParaImprimir.map(em => {
-        let conceptos = [];
-        try { conceptos = JSON.parse(em[11] || "[]"); } catch(e){}
-        return `
-            <tr class="table-secondary"><td colspan="4" class="fw-bold">${em[1]} (Legajo: ${em[0]})</td></tr>
-            ${conceptos.map(c => `
-                <tr>
-                    <td class="ps-3 text-muted">${c.nombre}</td>
-                    <td class="text-center small">${c.modo === 'porcentaje' ? c.valor+'%' : '$'+c.valor}</td>
-                    <td class="text-end text-success">${c.tipo !== 'DESC' ? '✔' : ''}</td>
-                    <td class="text-end text-danger">${c.tipo === 'DESC' ? '✔' : ''}</td>
-                </tr>
-            `).join('')}
+    let htmlList = '';
+    
+    listaParaImprimir.forEach((em, index) => {
+        let claseOculta = index >= 5 ? 'fila-extra-liq d-none' : '';
+        
+        // LE QUITAMOS EL colspan="4" PARA QUE COINCIDA CON LA NUEVA TABLA DE 1 COLUMNA
+        htmlList += `
+            <tr class="${claseOculta}">
+                <td class="fw-bold text-uppercase border-bottom py-2">
+                    <i class="bi bi-person-check text-success me-2"></i> ${em[1]} <span class="text-muted fw-normal ms-2">| Legajo: ${em[0]}</span>
+                </td>
+            </tr>
         `;
-    }).join('');
+    });
+
+    if (listaParaImprimir.length > 5) {
+        // También adaptamos el botón de ver más para que no busque 4 columnas
+        htmlList += `
+            <tr id="fila-btn-ver-mas">
+                <td class="text-center bg-light py-2">
+                    <button type="button" class="btn btn-sm btn-outline-dark fw-bold rounded-pill px-3" onclick="mostrarTodoLoteLiq()">
+                        <i class="bi bi-chevron-down me-1"></i> Mostrar ${listaParaImprimir.length - 5} empleado(s) más
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+
+    contenedor.innerHTML = htmlList;
 
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
     document.getElementById('cabecera-recibo').innerHTML = `
-        <h6 class="fw-bold text-dark mb-0">${empActiva ? empActiva[0] : 'Empresa'}</h6>
+        <h6 class="fw-bold text-dark mb-0 text-uppercase">${empActiva ? empActiva[0] : 'Empresa'}</h6>
         <small class="text-muted">Procesando un lote de ${listaParaImprimir.length} recibo(s).</small>
     `;
 
     new bootstrap.Modal(document.getElementById('modalLiquidacion')).show();
 }
 
+// NUEVA FUNCIÓN: Convierte números a letras automáticamente para los recibos
+function numeroALetras(num) {
+    if (num === 0) return "CERO PESOS";
+    function unidades(num) {
+        switch (num) {
+            case 1: return "UN"; case 2: return "DOS"; case 3: return "TRES"; case 4: return "CUATRO"; case 5: return "CINCO";
+            case 6: return "SEIS"; case 7: return "SIETE"; case 8: return "OCHO"; case 9: return "NUEVE"; default: return "";
+        }
+    }
+    function decenas(num) {
+        let decena = Math.floor(num / 10); let unidad = num - (decena * 10);
+        switch (decena) {
+            case 1:
+                switch (unidad) {
+                    case 0: return "DIEZ"; case 1: return "ONCE"; case 2: return "DOCE"; case 3: return "TRECE";
+                    case 4: return "CATORCE"; case 5: return "QUINCE"; default: return "DIECI" + unidades(unidad);
+                }
+            case 2: return unidad === 0 ? "VEINTE" : "VEINTI" + unidades(unidad);
+            case 3: return decenasY("TREINTA", unidad); case 4: return decenasY("CUARENTA", unidad);
+            case 5: return decenasY("CINCUENTA", unidad); case 6: return decenasY("SESENTA", unidad);
+            case 7: return decenasY("SETENTA", unidad); case 8: return decenasY("OCHENTA", unidad);
+            case 9: return decenasY("NOVENTA", unidad); case 0: return unidades(unidad);
+        }
+    }
+    function decenasY(strSin, numUnidades) { return numUnidades > 0 ? strSin + " Y " + unidades(numUnidades) : strSin; }
+    function centenas(num) {
+        let centena = Math.floor(num / 100); let decena = num - (centena * 100);
+        switch (centena) {
+            case 1: return decena > 0 ? "CIENTO " + decenas(decena) : "CIEN";
+            case 2: return "DOSCIENTOS " + decenas(decena); case 3: return "TRESCIENTOS " + decenas(decena);
+            case 4: return "CUATROCIENTOS " + decenas(decena); case 5: return "QUINIENTOS " + decenas(decena);
+            case 6: return "SEISCIENTOS " + decenas(decena); case 7: return "SETECIENTOS " + decenas(decena);
+            case 8: return "OCHOCIENTOS " + decenas(decena); case 9: return "NOVECIENTOS " + decenas(decena);
+            default: return decenas(decena);
+        }
+    }
+    function seccion(num, divisor, strSingular, strPlural) {
+        let cientos = Math.floor(num / divisor); let resto = num - (cientos * divisor); let letras = "";
+        if (cientos > 0) letras = cientos > 1 ? centenas(cientos) + " " + strPlural : strSingular;
+        return letras;
+    }
+    function miles(num) {
+        let divisor = 1000; let cientos = Math.floor(num / divisor); let resto = num - (cientos * divisor);
+        let strMiles = seccion(num, divisor, "UN MIL", "MIL"); let strCentenas = centenas(resto);
+        return strMiles == "" ? strCentenas : strMiles + (strCentenas ? " " + strCentenas : "");
+    }
+    function millones(num) {
+        let divisor = 1000000; let cientos = Math.floor(num / divisor); let resto = num - (cientos * divisor);
+        let strMillones = seccion(num, divisor, "UN MILLON", "MILLONES"); let strMiles = miles(resto);
+        return strMillones == "" ? strMiles : strMillones + (strMiles ? " " + strMiles : "");
+    }
+    let enteros = Math.floor(num);
+    let centavos = Math.round((num - enteros) * 100);
+    return `RECIBÍ CONFORME LA SUMA DE: ${millones(enteros).trim()} PESOS CON ${centavos}/100.`;
+}
+
+// FUNCIÓN DE IMPRESIÓN ACTUALIZADA CON EL TEXTO
 function imprimirRecibo() {
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
     const periodoRaw = document.getElementById('liq-periodo').value; // AAAA-MM
@@ -655,7 +725,6 @@ function imprimirRecibo() {
         periodoFormateado = `${partes[1]}/${partes[0]}`;
     }
 
-    // Construcción dinámica del canvas de impresión
     let htmlVentana = `
     <html>
     <head>
@@ -683,7 +752,6 @@ function imprimirRecibo() {
         let totalNoRemunerativo = 0;
         let totalDeducciones = 0;
 
-        // Calculamos fila por fila con precisión matemática veloz
         let filasHTML = conceptos.map(c => {
             let subtotal = 0;
             let valorInput = parseFloat(c.valor) || 0;
@@ -720,8 +788,10 @@ function imprimirRecibo() {
         }).join('');
 
         const netoFinal = (sueldoBase + totalRemunerativo + totalNoRemunerativo) - totalDeducciones;
+        
+        // Convertimos el neto final a palabras con la nueva función
+        const textoNeto = numeroALetras(netoFinal);
 
-        // Estructura duplicada en espejo para el Recibo (Original y Duplicado)
         const plantillaRecibo = (tipoCopia) => `
         <div class="card p-3 recibo-card rounded-0 bg-white">
             <div class="row border-bottom pb-2 mb-2">
@@ -736,6 +806,19 @@ function imprimirRecibo() {
                 </div>
             </div>
             
+            <table class="table table-sm tabla-recibo mb-2 text-uppercase">
+                <thead class="table-light">
+                    <tr><th>Lugar de Pago / Banco</th><th>Fecha de Pago</th><th>Último Depósito de Aportes</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${banco || 'En mano'}</td>
+                        <td>${fechaPago || '---'}</td>
+                        <td>${aportes || '---'}</td>
+                    </tr>
+                </tbody>
+            </table>
+
             <table class="table table-sm tabla-recibo mb-2 text-uppercase">
                 <thead class="table-light">
                     <tr><th>Legajo</th><th>Empleado</th><th>CUIL</th><th>Fecha Ingreso</th><th>Tarea / Cargo</th></tr>
@@ -767,12 +850,10 @@ function imprimirRecibo() {
                 </tbody>
             </table>
 
-            <div class="row g-2 text-uppercase">
+            <div class="row g-2 text-uppercase justify-content-between mt-2">
                 <div class="col-7">
-                    <div class="p-2 border" style="font-size:10px; min-height:65px;">
-                        <strong>Lugar de Pago:</strong> ${banco || 'En mano'}<br>
-                        <strong>Fecha de Pago:</strong> ${fechaPago || '---'}<br>
-                        <strong>Último Depósito de Aportes:</strong> ${aportes || '---'}
+                    <div class="p-2 border h-100 bg-light d-flex align-items-center" style="font-size: 10px;">
+                        <strong>${textoNeto}</strong>
                     </div>
                 </div>
                 <div class="col-5">
@@ -804,6 +885,14 @@ function imprimirRecibo() {
     bootstrap.Modal.getInstance(document.getElementById('modalLiquidacion')).hide();
     resetearVistaLiquidacion();
 }
+
+// NUEVA FUNCIÓN: Solo se encarga de mostrar los ocultos y borrar el botón
+function mostrarTodoLoteLiq() {
+    document.querySelectorAll('.fila-extra-liq').forEach(fila => fila.classList.remove('d-none'));
+    const btnFila = document.getElementById('fila-btn-ver-mas');
+    if (btnFila) btnFila.remove();
+}
+
 /* ============================================================
    🏷️ GESTIÓN INTEGRAL DE GREMIOS (BLOQUE 4 DE 4)
    ============================================================ */
