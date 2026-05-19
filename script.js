@@ -2,7 +2,7 @@
    🔹 SCRIPT.JS: MOTOR COMPACTO v4.0 (BLOQUE 1 DE 4)
    ============================================================ */
 
-const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbyio3aXpKrgwY-EdJ_mlnG72z8V04TC-3HE0_ZebD4Nuc3qDlqVYLDdql-RZilwmqijoQ/exec';
+const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbz8KK8tzJkunSyybaoJCB7gzRWEZLGkzJ0f_l4IsLbs7DKL_i3Ih0n2prPpLuA5ywHp7Q/exec';
 
 // --- ESTADOS GLOBALES ---
 let cacheEmpresas = [];
@@ -144,30 +144,52 @@ function prepararEdicionEmpresa(nombreEscaped, direccionEscaped, cuitEscaped) {
 }
 
 async function guardarEmpresa(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    
     const btn = document.getElementById('btn-guardar-empresa');
     if (btn) btn.disabled = true;
 
-    const cuitOriginal = document.getElementById('emp-cuit-original').value;
+    // Obtenemos los valores
+    const cuitOriginal = document.getElementById('emp-cuit-original').value.trim();
+    const empleador = document.getElementById('emp-empleador').value.trim();
+    const direccion = document.getElementById('emp-direccion').value.trim();
+    const cuit = document.getElementById('emp-cuit').value.trim();
+    
     const esEdicion = cuitOriginal !== "";
 
     const datos = {
         action: esEdicion ? 'editarEmpresa' : 'crearEmpresa',
         cuitOriginal: cuitOriginal,
-        empleador: document.getElementById('emp-empleador').value.trim(),
-        direccion: document.getElementById('emp-direccion').value.trim(),
-        cuit: document.getElementById('emp-cuit').value.trim()
+        empleador: empleador,
+        direccion: direccion,
+        cuit: cuit
     };
 
     try {
-        const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(datos) });
-        if (resp.ok) {
+        const resp = await fetch(URL_WEB_APP, { 
+            method: 'POST', 
+            body: JSON.stringify(datos) 
+        });
+        
+        // Verificamos si la respuesta del servidor es texto "OK"
+        const respuestaTexto = await resp.text();
+        
+        if (respuestaTexto.includes("OK")) {
             alert(esEdicion ? "✅ Empresa actualizada con éxito" : "✅ Empresa registrada");
-            bootstrap.Modal.getInstance(document.getElementById('modalEmpresa')).hide();
+            
+            // Cerramos modal de forma segura
+            const modalEl = document.getElementById('modalEmpresa');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            
             await cargarEmpresas();
+        } else {
+            // Esto nos dirá si Google Sheets devolvió un error específico
+            throw new Error(respuestaTexto);
         }
     } catch (err) { 
-        alert("Error al procesar empresa"); 
+        console.error("Error detallado:", err);
+        alert("Error al procesar empresa: " + err.message); 
     } finally { 
         if (btn) btn.disabled = false; 
     }
@@ -368,22 +390,29 @@ function actualizarOpcionesGremioEmpleado() {
 }
 
 async function guardarEmpleado(e) {
-    e.preventDefault();
-    if (!cuitEmpresaActiva) return;
-    const btn = e.submitter;
+    if (e) e.preventDefault();
+    
+    // Fuerza a buscar el CUIT activo
+    const cuitEmpresa = cuitEmpresaActiva || document.getElementById('emp-cuit')?.value;
+    if (!cuitEmpresa) return alert("❌ Error: No se detectó la empresa activa.");
+
+    const btn = e.submitter || document.querySelector('#form-empleado button[type="submit"]');
     if (btn) btn.disabled = true;
+
+    // Captura de datos nuevos de modalidad
+    const modalidadSeleccionada = document.querySelector('input[name="modalidad"]:checked')?.value || 'mensual';
+    const cantidadModalidad = document.getElementById('empl-cantidad-modalidad')?.value || "1";
 
     const cuilOriginal = document.getElementById('empl-cuil-original').value;
     const esEdicion = cuilOriginal !== "";
 
     const conceptosSeleccionados = [];
     document.querySelectorAll('.check-concepto-emp:checked').forEach(input => {
-        conceptosSeleccionados.push(JSON.parse(input.value));
+        try { conceptosSeleccionados.push(JSON.parse(input.value)); } catch(err){}
     });
 
     const selectCat = document.getElementById('empl-categoria');
-    const sueldoBase = selectCat ? (selectCat.value || "0") : "0"; 
-
+    
     const datos = {
         action: esEdicion ? 'editarEmpleado' : 'crearEmpleado',
         cuilOriginal: cuilOriginal,
@@ -392,21 +421,29 @@ async function guardarEmpleado(e) {
         cuil: document.getElementById('empl-cuil').value.trim(),
         ingreso: document.getElementById('empl-ingreso').value, 
         tarea: document.getElementById('empl-tarea').value.trim(),
-        bruto: sueldoBase, 
-        cuitEmpresa: cuitEmpresaActiva,
+        bruto: selectCat ? selectCat.value : "0", 
+        cuitEmpresa: cuitEmpresa,
         gremio: document.getElementById('empl-gremio').value,
-        conceptos: JSON.stringify(conceptosSeleccionados) 
+        conceptos: JSON.stringify(conceptosSeleccionados),
+        // Nuevos campos enviados al servidor
+        modalidad: modalidadSeleccionada,
+        cantidad: cantidadModalidad
     };
 
     try {
         const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(datos) });
-        if (resp.ok) {
-            alert(esEdicion ? "✅ Empleado actualizado de forma directa" : "✅ Empleado guardado con legajo único");
-            bootstrap.Modal.getInstance(document.getElementById('modalEmpleado')).hide();
-            await cargarEmpleadosEmpresa(cuitEmpresaActiva);
+        const textoRespuesta = await resp.text();
+        
+        if (textoRespuesta.includes("OK")) {
+            alert("✅ Empleado guardado correctamente.");
+            const modalEl = document.getElementById('modalEmpleado');
+            bootstrap.Modal.getInstance(modalEl)?.hide();
+            await cargarEmpleadosEmpresa(cuitEmpresa);
+        } else {
+            alert("Error del servidor: " + textoRespuesta);
         }
     } catch (err) { 
-        alert("Error al procesar el empleado"); 
+        alert("Error de conexión al guardar empleado."); 
     } finally { 
         if (btn) btn.disabled = false; 
     }
@@ -684,16 +721,12 @@ function numeroALetras(num) {
 // FUNCIÓN DE IMPRESIÓN ACTUALIZADA CON EL TEXTO
 function imprimirRecibo() {
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
-    const periodoRaw = document.getElementById('liq-periodo').value; // AAAA-MM
+    const periodoRaw = document.getElementById('liq-periodo').value;
     const fechaPago = document.getElementById('liq-fecha-pago').value;
     const banco = document.getElementById('liq-banco').value;
     const aportes = document.getElementById('liq-aportes').value;
 
-    let periodoFormateado = "---";
-    if (periodoRaw) {
-        const partes = periodoRaw.split('-');
-        periodoFormateado = `${partes[1]}/${partes[0]}`;
-    }
+    let periodoFormateado = periodoRaw ? periodoRaw.split('-')[1] + '/' + periodoRaw.split('-')[0] : "---";
 
     let htmlVentana = `
     <html>
@@ -707,9 +740,11 @@ function imprimirRecibo() {
             .firma-box { height: 60px; border-top: 1px dashed #333; margin-top: 40px; text-center; }
         </style>
     </head>
-    <body class="bg-light py-4" onload="window.print()">
+    <body class="bg-light py-4">
         <div class="container bg-white p-3 shadow no-print mb-4 text-center">
-            <button class="btn btn-dark fw-bold" onclick="window.print()"><i class="bi bi-printer"></i> RE-IMPRIMIR LOTE</button>
+            <button class="btn btn-dark fw-bold" onclick="window.print()">
+                <i class="bi bi-printer"></i> ABRIR VISTA PREVIA E IMPRIMIR
+            </button>
         </div>
         <div class="container">`;
 
@@ -717,141 +752,77 @@ function imprimirRecibo() {
         let conceptos = [];
         try { conceptos = JSON.parse(em[11] || "[]"); } catch(e){}
 
-        const sueldoBase = parseFloat(em[5]) || 0;
+        const brutoUnitario = parseFloat(em[5]) || 0;
+        const modalidad = em[12] || 'mensual';
+        const cantidad = parseFloat(em[13]) || 1;
+        
+        let sueldoBase = (modalidad !== 'mensual') ? (brutoUnitario * cantidad) : brutoUnitario;
+
         let totalRemunerativo = 0;
         let totalNoRemunerativo = 0;
         let totalDeducciones = 0;
 
         let filasHTML = conceptos.map(c => {
-            let subtotal = 0;
-            let valorInput = parseFloat(c.valor) || 0;
-
-            if (c.modo === 'porcentaje') {
-                subtotal = sueldoBase * (valorInput / 100);
-            } else {
-                subtotal = valorInput;
-            }
-
-            let haberesRem = "";
-            let haberesNoRem = "";
-            let deduccion = "";
-
-            if (c.tipo === 'REM') {
-                totalRemunerativo += subtotal;
-                haberesRem = subtotal.toFixed(2);
-            } else if (c.tipo === 'NO_REM') {
-                totalNoRemunerativo += subtotal;
-                haberesNoRem = subtotal.toFixed(2);
-            } else if (c.tipo === 'DESC') {
-                totalDeducciones += subtotal;
-                deduccion = subtotal.toFixed(2);
-            }
-
-            return `
-            <tr>
-                <td>${c.nombre}</td>
-                <td class="text-center">${c.modo === 'porcentaje' ? c.valor + '%' : 'Fijo'}</td>
-                <td class="text-end">${haberesRem}</td>
-                <td class="text-end">${haberesNoRem}</td>
-                <td class="text-end">${deduccion}</td>
-            </tr>`;
+            let subtotal = (c.modo === 'porcentaje') ? (sueldoBase * (parseFloat(c.valor) / 100)) : parseFloat(c.valor);
+            if (c.tipo === 'REM') totalRemunerativo += subtotal;
+            else if (c.tipo === 'NO_REM') totalNoRemunerativo += subtotal;
+            else if (c.tipo === 'DESC') totalDeducciones += subtotal;
+            return `<tr><td>${c.nombre}</td><td class="text-center">${c.modo === 'porcentaje' ? c.valor + '%' : 'Fijo'}</td>
+                    <td class="text-end">${c.tipo === 'REM' ? subtotal.toFixed(2) : ''}</td>
+                    <td class="text-end">${c.tipo === 'NO_REM' ? subtotal.toFixed(2) : ''}</td>
+                    <td class="text-end">${c.tipo === 'DESC' ? subtotal.toFixed(2) : ''}</td></tr>`;
         }).join('');
 
         const netoFinal = (sueldoBase + totalRemunerativo + totalNoRemunerativo) - totalDeducciones;
-        
-        // Convertimos el neto final a palabras con la nueva función
         const textoNeto = numeroALetras(netoFinal);
 
         const plantillaRecibo = (tipoCopia) => `
         <div class="card p-3 recibo-card rounded-0 bg-white">
             <div class="row border-bottom pb-2 mb-2">
-                <div class="col-6">
-                    <h6 class="fw-bold mb-0 text-uppercase">${empActiva ? empActiva[0] : 'Empresa'}</h6>
-                    <small>CUIT: ${empActiva ? empActiva[2] : '---'}<br>Dirección: ${empActiva ? empActiva[1] : '---'}</small>
-                </div>
-                <div class="col-6 text-end">
-                    <h5 class="fw-bold text-secondary mb-0">RECIBO DE SUELDO</h5>
-                    <small class="fw-bold text-danger text-uppercase">${tipoCopia}</small><br>
-                    <small>Periodo: <strong>${periodoFormateado}</strong></small>
-                </div>
+                <div class="col-6"><h6 class="fw-bold mb-0 text-uppercase">${empActiva ? empActiva[0] : 'Empresa'}</h6><small>CUIT: ${empActiva ? empActiva[2] : '---'}</small></div>
+                <div class="col-6 text-end"><h5 class="fw-bold text-secondary mb-0">RECIBO DE SUELDO</h5><small class="fw-bold text-danger text-uppercase">${tipoCopia}</small></div>
             </div>
             
             <table class="table table-sm tabla-recibo mb-2 text-uppercase">
-                <thead class="table-light">
-                    <tr><th>Lugar de Pago / Banco</th><th>Fecha de Pago</th><th>Último Depósito de Aportes</th></tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>${banco || 'En mano'}</td>
-                        <td>${fechaPago || '---'}</td>
-                        <td>${aportes || '---'}</td>
-                    </tr>
-                </tbody>
+                <thead class="table-light"><tr><th>Lugar de Pago / Banco</th><th>Fecha de Pago</th><th>Último Depósito de Aportes</th></tr></thead>
+                <tbody><tr><td>${banco || 'En mano'}</td><td>${fechaPago || '---'}</td><td>${aportes || '---'}</td></tr></tbody>
             </table>
 
             <table class="table table-sm tabla-recibo mb-2 text-uppercase">
-                <thead class="table-light">
-                    <tr><th>Legajo</th><th>Empleado</th><th>CUIL</th><th>Fecha Ingreso</th><th>Tarea / Cargo</th></tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>${em[0]}</strong></td>
-                        <td><strong>${em[1]}</strong></td>
-                        <td>${em[2]}</td>
-                        <td>${em[3] ? em[3].split('T')[0] : '---'}</td>
-                        <td>${em[4] || '---'}</td>
-                    </tr>
-                </tbody>
+                <thead class="table-light"><tr><th>Empleado</th><th>Modalidad</th><th>Tarea</th></tr></thead>
+                <tbody><tr><td><strong>${em[1]}</strong></td><td>${modalidad.toUpperCase()} (${cantidad})</td><td>${em[4] || '---'}</td></tr></tbody>
             </table>
 
             <table class="table table-sm tabla-recibo mb-2 text-uppercase">
-                <thead class="table-light">
-                    <tr><th>Conceptos / Detalles</th><th class="text-center">Cod/ %</th><th class="text-end">Remun.</th><th class="text-end">No Remun.</th><th class="text-end">Descuentos</th></tr>
-                </thead>
+                <thead class="table-light"><tr><th>Conceptos</th><th class="text-center">Cod</th><th class="text-end">Remun.</th><th class="text-end">No Rem.</th><th class="text-end">Desc.</th></tr></thead>
                 <tbody>
-                    <tr>
-                        <td>SUELDO BÁSICO CONVENIO</td>
-                        <td class="text-center">BÁSICO</td>
-                        <td class="text-end">${sueldoBase.toFixed(2)}</td>
-                        <td class="text-end"></td>
-                        <td class="text-end"></td>
-                    </tr>
+                    <tr><td>SUELDO BÁSICO</td><td class="text-center">BÁSICO</td><td class="text-end">${sueldoBase.toFixed(2)}</td><td></td><td></td></tr>
                     ${filasHTML}
                 </tbody>
             </table>
 
             <div class="row g-2 text-uppercase justify-content-between mt-2">
-                <div class="col-7">
-                    <div class="p-2 border h-100 bg-light d-flex align-items-center" style="font-size: 10px;">
-                        <strong>${textoNeto}</strong>
-                    </div>
-                </div>
+                <div class="col-7"><div class="p-2 border h-100 bg-light d-flex align-items-center" style="font-size: 10px;"><strong>${textoNeto}</strong></div></div>
                 <div class="col-5">
                     <table class="table table-sm table-bordered mb-0 h-100 align-middle">
-                        <tr><td class="small fw-bold bg-light">TOTAL BRUTO</td><td class="text-end fw-bold">$${(sueldoBase + totalRemunerativo).toFixed(2)}</td></tr>
-                        <tr><td class="small fw-bold bg-light">RETENCIONES</td><td class="text-end fw-bold text-danger">$${totalDeducciones.toFixed(2)}</td></tr>
-                        <tr><td class="small fw-bold bg-dark text-white">NETO A COBRAR</td><td class="text-end fw-bold bg-dark text-white fs-6">$${netoFinal.toFixed(2)}</td></tr>
+                        <tr><td class="small fw-bold bg-light">NETO A COBRAR</td><td class="text-end fw-bold bg-dark text-white fs-6">$${netoFinal.toFixed(2)}</td></tr>
                     </table>
                 </div>
             </div>
-
-            <div class="row mt-3">
-                <div class="col-6 text-center small"><div class="firma-box">Firma del Empleador</div></div>
-                <div class="col-6 text-center small"><div class="firma-box">Firma del Empleado</div></div>
-            </div>
+            <div class="row mt-3"><div class="col-6 text-center small"><div class="firma-box">Firma Empleador</div></div><div class="col-6 text-center small"><div class="firma-box">Firma Empleado</div></div></div>
         </div>`;
 
-        htmlVentana += plantillaRecibo("Original - Copia Empleado");
-        htmlVentana += plantillaRecibo("Duplicado - Copia Empleador");
-        htmlVentana += `<hr style="border: 2px dashed #000;" class="my-4 no-print">`;
+        htmlVentana += plantillaRecibo("Original") + plantillaRecibo("Duplicado") + `<hr style="border: 2px dashed #000;" class="my-4 no-print">`;
     });
 
     htmlVentana += `</div></body></html>`;
 
+    // ABRIR VENTANA Y CERRAR
     const ventana = window.open('', '_blank');
     ventana.document.write(htmlVentana);
     ventana.document.close();
     
+    // ELIMINAMOS EL SETTIMEOUT QUE FORZABA LA IMPRESIÓN
     bootstrap.Modal.getInstance(document.getElementById('modalLiquidacion')).hide();
     resetearVistaLiquidacion();
 }
@@ -1159,3 +1130,17 @@ async function eliminarGremio(nombre) {
         alert("Error de conexión al eliminar."); 
     }
 }
+function toggleCamposModalidad() {
+    const contenedor = document.getElementById('campos-extra-modalidad');
+    const esMensual = document.getElementById('mod-mes').checked;
+    contenedor.classList.toggle('d-none', esMensual);
+}
+// Pon esto al final de tu script.js
+document.addEventListener('click', function(e) {
+    // Si el usuario hace clic en un input de tipo date
+    if (e.target && e.target.type === 'date') {
+        if (e.target.showPicker) {
+            e.target.showPicker();
+        }
+    }
+});

@@ -1,5 +1,5 @@
 #pantalla-login {
-    background: linear-gradient(135deg, #212529 0%, #000000 100%);
+    background: linear-gradient(135deg, #212529 0%, #df1414 100%);
 }
 #pantalla-login .card {
     border-radius: 15px;
@@ -41,3 +41,18 @@ button,
         .no-print { display: none !important; }
         body { background: white !important; }
     }
+/* Tarjeta de Empresa Mejorada */
+#cabecera-empresa-detalle {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
+    color: #ffffff !important;
+    border-radius: 12px;
+    padding: 2rem !important;
+    box-shadow: 0 10px 20px rgba(255, 255, 255, 0.15);
+    border-left: 5px solid #e67e22; /* Un toque de color para resaltar */
+}
+
+/* Mejora de legibilidad para títulos */
+#cabecera-empresa-detalle h2, #cabecera-empresa-detalle h5 {
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
