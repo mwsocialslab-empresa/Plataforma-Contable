@@ -719,6 +719,7 @@ function numeroALetras(num) {
 }
 
 // FUNCIÓN DE IMPRESIÓN ACTUALIZADA CON EL TEXTO
+// FUNCIÓN DE IMPRESIÓN ACTUALIZADA CON EL TEXTO Y LÓGICA DE COMBINADOS
 function imprimirRecibo() {
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
     const periodoRaw = document.getElementById('liq-periodo').value;
@@ -756,17 +757,44 @@ function imprimirRecibo() {
         const modalidad = em[12] || 'mensual';
         const cantidad = parseFloat(em[13]) || 1;
         
+        // 1. Calculamos la base principal
         let sueldoBase = (modalidad !== 'mensual') ? (brutoUnitario * cantidad) : brutoUnitario;
 
         let totalRemunerativo = 0;
         let totalNoRemunerativo = 0;
         let totalDeducciones = 0;
 
+        // 🔴 NUEVO: Memoria para guardar cuánta plata vale cada concepto calculado
+        let diccionarioValores = {
+            "SUELDO BÁSICO": sueldoBase
+        };
+
         let filasHTML = conceptos.map(c => {
-            let subtotal = (c.modo === 'porcentaje') ? (sueldoBase * (parseFloat(c.valor) / 100)) : parseFloat(c.valor);
+            let subtotal = 0;
+
+            if (c.esCombinado) {
+                // 2A. Es Combinado: Sumamos la plata de las bases elegidas
+                let sumaBases = 0;
+                if (c.conceptosBase && c.conceptosBase.length > 0) {
+                    c.conceptosBase.forEach(nombreBase => {
+                        sumaBases += (diccionarioValores[nombreBase] || 0);
+                    });
+                }
+                // Luego aplicamos el porcentaje o monto sobre esa SUMA total
+                subtotal = (c.modo === 'porcentaje') ? (sumaBases * (parseFloat(c.valor) / 100)) : parseFloat(c.valor);
+            } else {
+                // 2B. Es Simple: Se calcula directo sobre el sueldo base
+                subtotal = (c.modo === 'porcentaje') ? (sueldoBase * (parseFloat(c.valor) / 100)) : parseFloat(c.valor);
+            }
+
+            // 3. Guardamos en la memoria este subtotal por si otro concepto lo necesita
+            diccionarioValores[c.nombre] = subtotal;
+
+            // 4. Distribuimos el resultado en la columna correspondiente
             if (c.tipo === 'REM') totalRemunerativo += subtotal;
             else if (c.tipo === 'NO_REM') totalNoRemunerativo += subtotal;
             else if (c.tipo === 'DESC') totalDeducciones += subtotal;
+            
             return `<tr><td>${c.nombre}</td><td class="text-center">${c.modo === 'porcentaje' ? c.valor + '%' : 'Fijo'}</td>
                     <td class="text-end">${c.tipo === 'REM' ? subtotal.toFixed(2) : ''}</td>
                     <td class="text-end">${c.tipo === 'NO_REM' ? subtotal.toFixed(2) : ''}</td>
@@ -817,12 +845,10 @@ function imprimirRecibo() {
 
     htmlVentana += `</div></body></html>`;
 
-    // ABRIR VENTANA Y CERRAR
     const ventana = window.open('', '_blank');
     ventana.document.write(htmlVentana);
     ventana.document.close();
     
-    // ELIMINAMOS EL SETTIMEOUT QUE FORZABA LA IMPRESIÓN
     bootstrap.Modal.getInstance(document.getElementById('modalLiquidacion')).hide();
     resetearVistaLiquidacion();
 }
@@ -912,15 +938,23 @@ function crearConceptoCombinado() {
     const valor = document.getElementById('comb-valor').value;
     
     const seleccionados = [];
+    
+    // Verificamos el Sueldo Básico
+    const checkSueldo = document.getElementById('base-sueldo-basico');
+    if (checkSueldo && checkSueldo.checked) {
+        seleccionados.push("SUELDO BÁSICO");
+    }
+
+    // NUEVO: Verificamos todos los conceptos por su índice real en el array completo
     conceptosTemporales.forEach((c, index) => {
-        if (!c.esCombinado) {
-            const check = document.getElementById(`base-${index}`);
-            if (check && check.checked) seleccionados.push(c.nombre);
+        const check = document.getElementById(`base-${index}`);
+        if (check && check.checked) {
+            seleccionados.push(c.nombre);
         }
     });
 
     if (!nombre || !valor || seleccionados.length === 0) {
-        return alert("⚠️ Poné un nombre, valor tildá al menos un concepto básico para usar como base.");
+        return alert("⚠️ Poné un nombre, valor y tildá al menos un concepto básico para usar como base.");
     }
 
     conceptosTemporales.push({
@@ -936,7 +970,6 @@ function crearConceptoCombinado() {
     document.getElementById('comb-valor').value = "";
     renderizarConceptosTemporales();
 }
-
 
 
 
@@ -1012,7 +1045,7 @@ function renderizarConceptosTemporales() {
         </div>`;
     }).join('');
 
-    // 2. Renderizamos solo los COMBINADOS abajo (Debajo de combinados propiamente)
+    // 2. Renderizamos solo los COMBINADOS abajo
     const combinados = conceptosTemporales.filter(c => c.esCombinado);
     if (listaCombinados) {
         listaCombinados.innerHTML = combinados.map(c => {
@@ -1030,17 +1063,29 @@ function renderizarConceptosTemporales() {
         }).join('');
     }
 
-    // 3. Regeneramos los checkboxes para crear combinados (solo usamos los simples como base)
-    base.innerHTML = simples.map(c => {
-        const index = conceptosTemporales.indexOf(c);
+    // 3. Regeneramos los checkboxes (AHORA INCLUYE SIMPLES Y COMBINADOS ANTERIORES)
+    let htmlBases = `
+        <div class="form-check form-check-inline border border-primary rounded px-2 bg-light shadow-xs mb-1">
+            <input class="form-check-input" type="checkbox" id="base-sueldo-basico" checked>
+            <label class="form-check-label small fw-bold cursor-pointer text-primary" for="base-sueldo-basico">SUELDO BÁSICO</label>
+        </div>
+    `;
+    
+    htmlBases += conceptosTemporales.map((c, index) => {
+        // Si el concepto es combinado, le ponemos un fondo sutil amarillo para distinguirlo
+        const claseFondo = c.esCombinado ? 'bg-warning-subtle border-warning' : 'bg-white';
         return `
-        <div class="form-check form-check-inline border rounded px-2 bg-white shadow-xs">
+        <div class="form-check form-check-inline border rounded px-2 shadow-xs mb-1 ${claseFondo}">
             <input class="form-check-input" type="checkbox" id="base-${index}">
             <label class="form-check-label small fw-bold cursor-pointer" for="base-${index}">${c.nombre}</label>
         </div>`;
     }).join('');
     
-    if (simples.length === 0) base.innerHTML = '<span class="text-muted small">Cargá conceptos en el Paso 4 para verlos aquí.</span>';
+    base.innerHTML = htmlBases;
+    
+    if (conceptosTemporales.length === 0) {
+        base.innerHTML = htmlBases + '<br><span class="text-muted small">Cargá conceptos en el Paso 4 para verlos aquí.</span>';
+    }
 }
 
 async function guardarGremio(e) {
@@ -1144,3 +1189,26 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+async function renderizarTablaEmpleados(empleados) {
+    const contenedor = document.getElementById('lista-empleados'); // Asegúrate de tener este ID
+    if (!contenedor) return;
+
+    contenedor.innerHTML = empleados.map(em => `
+        <div class="card mb-2 shadow-sm border-0">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="fw-bold mb-0">${em[1]}</h6> <small class="text-muted">CUIL: ${em[2]}</small> </div>
+                    <div>
+                        <button class="btn btn-outline-warning btn-sm me-1" onclick="prepararEdicionEmpleado('${em[2]}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="eliminarEmpleado('${em[2]}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
