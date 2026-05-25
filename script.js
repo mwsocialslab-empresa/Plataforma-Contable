@@ -123,6 +123,51 @@ function abrirModalEmpresa() {
     new bootstrap.Modal(document.getElementById('modalEmpresa')).show();
 }
 
+
+
+async function guardarEmpresa(e) {
+    if (e) e.preventDefault();
+    
+    const btn = document.getElementById('btn-guardar-empresa');
+    if (btn) btn.disabled = true;
+
+    const cuitOriginal = document.getElementById('emp-cuit-original').value.trim();
+    const empleador = document.getElementById('emp-empleador').value.trim();
+    const direccion = document.getElementById('emp-direccion').value.trim();
+    const cuit = document.getElementById('emp-cuit').value.trim();
+    
+    const esEdicion = cuitOriginal !== "";
+
+    const datos = {
+        action: esEdicion ? 'editarEmpresa' : 'crearEmpresa',
+        cuitOriginal: cuitOriginal,
+        empleador: empleador,
+        direccion: direccion,
+        cuit: cuit
+    };
+
+    try {
+        const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(datos) });
+        const respuestaTexto = await resp.text();
+        
+        if (respuestaTexto.includes("OK")) {
+            mostrarAlertaPersonalizada("Éxito", esEdicion ? "Empresa actualizada con éxito." : "Empresa registrada con éxito.", "exito");
+            
+            const modalEl = document.getElementById('modalEmpresa');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            
+            await cargarEmpresas();
+        } else {
+            mostrarAlertaPersonalizada("Error", respuestaTexto, "error");
+        }
+    } catch (err) { 
+        mostrarAlertaPersonalizada("Error", "Error al procesar empresa: " + err.message, "error"); 
+    } finally { 
+        if (btn) btn.disabled = false; 
+    }
+}
+
 function prepararEdicionEmpresa(nombreEscaped, direccionEscaped, cuitEscaped) {
     document.getElementById('form-empresa').reset();
     
@@ -143,61 +188,17 @@ function prepararEdicionEmpresa(nombreEscaped, direccionEscaped, cuitEscaped) {
     new bootstrap.Modal(document.getElementById('modalEmpresa')).show();
 }
 
-async function guardarEmpresa(e) {
-    if (e) e.preventDefault();
-    
-    const btn = document.getElementById('btn-guardar-empresa');
-    if (btn) btn.disabled = true;
-
-    // Obtenemos los valores
-    const cuitOriginal = document.getElementById('emp-cuit-original').value.trim();
-    const empleador = document.getElementById('emp-empleador').value.trim();
-    const direccion = document.getElementById('emp-direccion').value.trim();
-    const cuit = document.getElementById('emp-cuit').value.trim();
-    
-    const esEdicion = cuitOriginal !== "";
-
-    const datos = {
-        action: esEdicion ? 'editarEmpresa' : 'crearEmpresa',
-        cuitOriginal: cuitOriginal,
-        empleador: empleador,
-        direccion: direccion,
-        cuit: cuit
-    };
-
-    try {
-        const resp = await fetch(URL_WEB_APP, { 
-            method: 'POST', 
-            body: JSON.stringify(datos) 
-        });
-        
-        // Verificamos si la respuesta del servidor es texto "OK"
-        const respuestaTexto = await resp.text();
-        
-        if (respuestaTexto.includes("OK")) {
-            alert(esEdicion ? "✅ Empresa actualizada con éxito" : "✅ Empresa registrada");
-            
-            // Cerramos modal de forma segura
-            const modalEl = document.getElementById('modalEmpresa');
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-            
-            await cargarEmpresas();
-        } else {
-            // Esto nos dirá si Google Sheets devolvió un error específico
-            throw new Error(respuestaTexto);
-        }
-    } catch (err) { 
-        console.error("Error detallado:", err);
-        alert("Error al procesar empresa: " + err.message); 
-    } finally { 
-        if (btn) btn.disabled = false; 
-    }
+function eliminarEmpresa(cuit) {
+    // 🟢 Integrado con tu nuevo sistema de alertas estilizadas
+    mostrarAlertaPersonalizada(
+        "¿Eliminar Empresa?", 
+        `¿Estás seguro de eliminar por completo la empresa con CUIT ${cuit}?\nSe borrará de forma permanente de la base de datos.`, 
+        "peligro", 
+        () => ejecutarEliminacionEmpresa(cuit)
+    );
 }
 
-async function eliminarEmpresa(cuit) {
-    if (!confirm(`¿Estás seguro de eliminar por completo la empresa con CUIT ${cuit}?\nSe borrará de forma permanente de la base de datos.`)) return;
-    
+async function ejecutarEliminacionEmpresa(cuit) {
     try {
         const resp = await fetch(URL_WEB_APP, { 
             method: 'POST', 
@@ -205,13 +206,13 @@ async function eliminarEmpresa(cuit) {
         });
         const texto = await resp.text();
         if (texto === "OK") {
-            alert("🗑️ Empresa eliminada correctamente");
+            mostrarAlertaPersonalizada("Eliminado", "La empresa fue borrada correctamente.", "exito");
             await cargarEmpresas();
         } else {
-            alert("Error: " + texto);
+            mostrarAlertaPersonalizada("Error", texto, "error");
         }
     } catch (e) { 
-        alert("Error de conexión al eliminar la empresa."); 
+        mostrarAlertaPersonalizada("Error de conexión", "No se pudo conectar con el servidor para eliminar la empresa.", "error"); 
     }
 }
 
@@ -242,13 +243,9 @@ async function verDetalleEmpresa(cuit) {
     }
 }
 // 🔴 PARCHE DE SEGURIDAD NATIVO: Evita que el navegador se clave por funciones faltantes
-function prepararEdicionEmpresa(cuit) {
-    alert("Función de edición en preparación para el CUIT: " + cuit);
-}
 
-function eliminarEmpresa(cuit) {
-    alert("Función de eliminación en preparación para el CUIT: " + cuit);
-}
+
+
 
 function guardarCambiosEmpresa() {
     alert("✅ Datos mensuales retenidos temporalmente.");
@@ -421,12 +418,11 @@ function actualizarOpcionesGremioEmpleado() {
     }
 }
 
-
 async function guardarEmpleado(e) {
     if (e) e.preventDefault();
     
     const cuitEmpresa = cuitEmpresaActiva || document.getElementById('emp-cuit')?.value;
-    if (!cuitEmpresa) return alert("❌ Error: No se detectó la empresa activa.");
+    if (!cuitEmpresa) return mostrarAlertaPersonalizada("Error", "No se detectó la empresa activa.", "error");
 
     const btn = e.submitter || document.querySelector('#form-empleado button[type="submit"]');
     if (btn) btn.disabled = true;
@@ -437,7 +433,6 @@ async function guardarEmpleado(e) {
     const cuilOriginal = document.getElementById('empl-cuil-original').value;
     const esEdicion = cuilOriginal !== "";
 
-    // Recompilamos los conceptos capturando el valor modificado del input numérico
     const conceptosSeleccionados = [];
     document.querySelectorAll('.check-concepto-emp:checked').forEach(chk => {
         const idNum = chk.id.split('-')[1];
@@ -476,19 +471,20 @@ async function guardarEmpleado(e) {
         const textoRespuesta = await resp.text();
         
         if (textoRespuesta.includes("OK")) {
-            alert("✅ Empleado guardado correctamente.");
+            mostrarAlertaPersonalizada("Éxito", "Empleado guardado correctamente.", "exito");
             const modalEl = document.getElementById('modalEmpleado');
             bootstrap.Modal.getInstance(modalEl)?.hide();
             await cargarEmpleadosEmpresa(cuitEmpresa);
         } else {
-            alert("Error del servidor: " + textoRespuesta);
+            mostrarAlertaPersonalizada("Error", "Error del servidor: " + textoRespuesta, "error");
         }
     } catch (err) { 
-        alert("Error de conexión al guardar empleado."); 
+        mostrarAlertaPersonalizada("Error", "Error de conexión al guardar empleado.", "error"); 
     } finally { 
         if (btn) btn.disabled = false; 
     }
 }
+
 function renderConceptosTemporales() {
     const lista = document.getElementById('lista-conceptos-gremio');
     const listaCombinados = document.getElementById('lista-conceptos-combinados');
@@ -1181,9 +1177,11 @@ function renderizarTablaGremios() {
 }
 
 function abrirModalGremio() {
+    // 1. LIMPIEZA DE CATEGORÍAS (esto sí debe ser nuevo al crear un gremio)
     categoriasTemporales = [];
     
-    // 🟢 LISTA POR DEFECTO PARA CUALQUIER GREMIO NUEVO
+    // 2. LÓGICA DE CONCEPTOS: 
+    // Cargamos SIEMPRE los valores por defecto al abrir un gremio nuevo para que aparezcan fijos.
     conceptosTemporales = [
         { nombre: "ADICIONAL 1", tipo: "REM", modo: "porcentaje", valor: 4, esCombinado: false },
         { nombre: "PRESENTISMO", tipo: "REM", modo: "porcentaje", valor: 20, esCombinado: false },
@@ -1196,97 +1194,64 @@ function abrirModalGremio() {
     ];
 
     document.getElementById('form-gremio').reset();
+    document.getElementById('gre-nombre-original').value = "";
     
-    const inputOriginal = document.getElementById('gre-nombre-original');
-    if (inputOriginal) inputOriginal.value = ""; 
-    
-    renderizarCategoriasTemporales();
-    renderizarConceptosTemporales(); // Llama a la función correcta de renderizado
-    
+    // 3. Abrimos el modal
     const modalElement = document.getElementById('modalGremio');
     let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
     modal.show();
+
+    // 4. Renderizado
+    setTimeout(() => {
+        renderizarCategoriasTemporales();
+        renderizarConceptosTemporales();
+    }, 100); 
+}
+function renderizarConceptosGremios() {
+    const contenedor = document.getElementById('contenedor-conceptos-gremio'); // El div donde quieres que aparezcan
+    if (!contenedor) return;
+
+    contenedor.innerHTML = conceptosTemporales.map((c, i) => `
+        <div class="row align-items-center mb-2 p-2 border-bottom">
+            <div class="col-4 fw-bold">${c.nombre}</div>
+            <div class="col-4">
+                <input type="number" class="form-control form-control-sm" value="${c.valor}" 
+                       oninput="conceptosTemporales[${i}].valor = parseFloat(this.value)">
+            </div>
+            <div class="col-4 text-muted small">${c.modo === 'porcentaje' ? '%' : '$'}</div>
+        </div>
+    `).join('');
 }
 function renderizarConceptosTemporales() {
     const lista = document.getElementById('lista-conceptos-gremio');
-    const listaCombinados = document.getElementById('lista-conceptos-combinados');
     const base = document.getElementById('lista-conceptos-base');
     if (!lista || !base) return;
 
-    // 1. Renderizamos conceptos SIMPLES con su input numérico
-    const simples = conceptosTemporales.filter(c => !c.esCombinado);
-    lista.innerHTML = simples.map(c => {
-        const index = conceptosTemporales.indexOf(c);
-        return `
+    // Renderizado simplificado
+    lista.innerHTML = conceptosTemporales.filter(c => !c.esCombinado).map((c, i) => `
         <div class="col-md-4 mb-2">
             <div class="p-2 border rounded bg-white shadow-sm position-relative">
-                <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="conceptosTemporales.splice(${index},1);renderizarConceptosTemporales()" title="Eliminar"></i>
-                <div class="fw-bold small text-uppercase mb-1">${c.nombre}</div>
-                <div class="d-flex align-items-center gap-1">
-                    <span class="text-muted text-uppercase" style="font-size: 0.65rem;">${c.tipo}:</span>
-                    <div class="input-group input-group-sm" style="max-width: 95px;">
-                        <span class="input-group-text p-1" style="font-size:0.65rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
-                        <input type="number" step="any" class="form-control form-control-sm p-1 fw-bold" value="${c.valor}" oninput="conceptosTemporales[${index}].valor = parseFloat(this.value) || 0">
-                    </div>
+                <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="conceptosTemporales.splice(${i},1);renderizarConceptosTemporales()"></i>
+                <div class="fw-bold small text-uppercase">${c.nombre}</div>
+                <div class="input-group input-group-sm mt-1">
+                    <span class="input-group-text">${c.modo === 'porcentaje' ? '%' : '$'}</span>
+                    <input type="number" class="form-control" value="${c.valor}" oninput="conceptosTemporales[${i}].valor = parseFloat(this.value)||0">
                 </div>
             </div>
-        </div>`;
-    }).join('');
+        </div>`).join('');
 
-    // 2. Renderizamos conceptos COMBINADOS con su input numérico
-    const combinados = conceptosTemporales.filter(c => c.esCombinado);
-    if (listaCombinados) {
-        listaCombinados.innerHTML = combinados.map(c => {
-            const index = conceptosTemporales.indexOf(c);
-            return `
-            <div class="col-md-4 mb-2">
-                <div class="p-2 border rounded bg-warning-subtle border-warning shadow-sm position-relative">
-                    <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="conceptosTemporales.splice(${index},1);renderizarConceptosTemporales()" title="Eliminar"></i>
-                    <div class="fw-bold small text-uppercase mb-1">${c.nombre}</div>
-                    <div class="d-flex align-items-center gap-1 mb-1">
-                        <span class="text-muted text-uppercase" style="font-size: 0.65rem;">${c.tipo}:</span>
-                        <div class="input-group input-group-sm" style="max-width: 95px;">
-                            <span class="input-group-text p-1" style="font-size:0.65rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
-                            <input type="number" step="any" class="form-control form-control-sm p-1 fw-bold" value="${c.valor}" oninput="conceptosTemporales[${index}].valor = parseFloat(this.value) || 0">
-                        </div>
-                    </div>
-                    <div class="text-primary" style="font-size: 0.55rem; font-style: italic;">Base: ${c.conceptosBase ? c.conceptosBase.join(' + ') : ''}</div>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    // 3. Regeneramos los checkboxes de conceptos base
-    let htmlBases = `
-        <div class="form-check form-check-inline border border-primary rounded px-2 bg-light shadow-xs mb-1">
-            <input class="form-check-input" type="checkbox" id="base-sueldo-basico" checked>
-            <label class="form-check-label small fw-bold cursor-pointer text-primary" for="base-sueldo-basico">SUELDO BÁSICO</label>
-        </div>
-    `;
-    
-    htmlBases += conceptosTemporales.map((c, index) => {
-        const claseFondo = c.esCombinado ? 'bg-warning-subtle border-warning' : 'bg-white';
-        return `
-        <div class="form-check form-check-inline border rounded px-2 shadow-xs mb-1 ${claseFondo}">
-            <input class="form-check-input" type="checkbox" id="base-${index}">
-            <label class="form-check-label small fw-bold cursor-pointer" for="base-${index}">${c.nombre}</label>
-        </div>`;
-    }).join('');
-    
-    base.innerHTML = htmlBases;
-    
-    if (conceptosTemporales.length === 0) {
-        base.innerHTML = htmlBases + '<br><span class="text-muted small">Cargá conceptos en el Paso 4 para verlos aquí.</span>';
-    }
+    // Regeneramos los checkboxes base
+    base.innerHTML = conceptosTemporales.map((c, i) => `
+        <div class="form-check form-check-inline border rounded px-2 mb-1">
+            <input class="form-check-input" type="checkbox" id="base-${i}">
+            <label class="form-check-label small" for="base-${i}">${c.nombre}</label>
+        </div>`).join('');
 }
 
 async function guardarGremio(e) {
     e.preventDefault();
-    if (categoriasTemporales.length === 0 || conceptosTemporales.length === 0) {
-        return alert("⚠️ Faltan agregar categorías o conceptos mínimos para guardar el convenio.");
-    }
-
-    // Selector seguro para el botón por si e.submitter falla
+    
+    // 🟢 YA NO BLOQUEAMOS MÁS porque siempre hay conceptos en conceptosTemporales
     const btn = e.submitter || document.querySelector('#form-gremio button[type="submit"]');
     if (btn) {
         btn.disabled = true;
@@ -1309,18 +1274,14 @@ async function guardarGremio(e) {
     try {
         const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify(datos) });
         if (resp.ok) {
-            alert(esEdicion ? "✅ Convenio actualizado con éxito." : "✅ Convenio de Gremio guardado con éxito.");
-            
-            const modalElement = document.getElementById('modalGremio');
-            const modalInstance = bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) modalInstance.hide();
-            
+            mostrarAlertaPersonalizada("Éxito", esEdicion ? "Convenio actualizado." : "Convenio guardado.", "exito");
+            bootstrap.Modal.getInstance(document.getElementById('modalGremio'))?.hide();
             await cargarGremios();
         } else {
-            alert("Error en el servidor al procesar el gremio.");
+            mostrarAlertaPersonalizada("Error", "Error en el servidor.", "error");
         }
     } catch (err) { 
-        alert("Error al guardar gremio en la base de datos."); 
+        mostrarAlertaPersonalizada("Error", "Error al conectar con la base de datos.", "error"); 
     } finally { 
         if (btn) {
             btn.disabled = false;
@@ -1370,20 +1331,30 @@ function prepararEdicionGremio(nombre, actividad, catsJson, consJson) {
     let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
     modal.show();
 }
+function eliminarGremio(nombre) {
+    mostrarAlertaPersonalizada(
+        "¿Eliminar Gremio?", 
+        `¿Estás seguro de eliminar por completo el gremio ${nombre}?\nAfectará a las fichas que lo tengan asignado.`, 
+        "peligro", 
+        () => ejecutarEliminacionGremio(nombre)
+    );
+}
 
-async function eliminarGremio(nombre) {
-    if (!confirm(`¿Estás seguro de eliminar por completo el gremio ${nombre}?\nAfectará a las fichas que lo tengan asignado.`)) return;
+async function ejecutarEliminacionGremio(nombre) {
     try {
         const resp = await fetch(URL_WEB_APP, { method: 'POST', body: JSON.stringify({ action: 'eliminarGremio', nombre: nombre }) });
         const texto = await resp.text();
         if (texto === "OK") {
-            alert("🗑️ Gremio eliminado correctamente");
+            mostrarAlertaPersonalizada("Eliminado", "Gremio eliminado correctamente.", "exito");
             await cargarGremios();
+        } else {
+            mostrarAlertaPersonalizada("Error", texto, "error");
         }
     } catch (e) { 
-        alert("Error de conexión al eliminar."); 
+        mostrarAlertaPersonalizada("Error de conexión", "No se pudo conectar con el servidor al eliminar.", "error"); 
     }
 }
+
 function toggleCamposModalidad() {
     const contenedor = document.getElementById('campos-extra-modalidad');
     const esMensual = document.getElementById('mod-mes').checked;

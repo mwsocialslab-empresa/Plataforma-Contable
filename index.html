@@ -153,7 +153,7 @@
             <section id="sec-gremios" class="seccion-app d-none">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h4 class="fw-bold text-uppercase"><i class="bi bi-person-badge text-warning me-2"></i> Gremios</h4>
-                    <button class="btn btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#modalGremio">NUEVO GREMIO</button>
+                    <button class="btn btn-warning fw-bold" onclick="abrirModalGremio()">NUEVO GREMIO</button>
                 </div>
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                     <table class="table table-hover align-middle mb-0">
@@ -288,7 +288,7 @@
     </div>
 
     <!-- MODAL GREMIO RECONSTRUIDO -->
-<div class="modal fade" id="modalGremio" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalGremio">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 rounded-4 shadow-lg">
             <form id="form-gremio" onsubmit="guardarGremio(event)">
