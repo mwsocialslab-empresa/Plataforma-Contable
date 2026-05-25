@@ -270,7 +270,6 @@ async function cargarEmpleadosEmpresa(cuit) {
 
         const cuitBuscado = cuit.toString().trim();
 
-        // Buscamos empleados asociados al CUIT en el índice 9 (columna J)
         const filtrados = cacheEmpleados.filter(em => {
             if (!em || !Array.isArray(em)) return false;
             return (em[9] || "").toString().trim() === cuitBuscado;
@@ -282,6 +281,7 @@ async function cargarEmpleadosEmpresa(cuit) {
         }
 
         cuerpo.innerHTML = filtrados.map(em => {
+            const legajo = em[0] || '';
             const nombre = em[1] || 'Sin Nombre';
             const cuil = em[2] || '---';
             const tarea = em[4] || 'Sin Cargo';
@@ -291,11 +291,13 @@ async function cargarEmpleadosEmpresa(cuit) {
                 <td class="text-center col-check d-none">
                     <input type="checkbox" class="form-check-input check-empleado" data-cuil="${cuil}">
                 </td>
-                <td class="fw-bold text-uppercase">${nombre}</td>
+                <td class="fw-bold text-uppercase cursor-pointer text-primary" onclick="verFichaEmpleado('${cuil}', '${legajo}')" title="Ver Ficha">
+                    <i class="bi bi-person-lines-fill me-1"></i> ${nombre}
+                </td>
                 <td>${cuil}</td>
                 <td><span class="badge bg-light text-dark border">${tarea}</span></td>
                 <td class="text-end pe-3">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editarEmpleado('${cuil}')"><i class="bi bi-pencil-square"></i></button>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editarEmpleado('${cuil}', '${legajo}')"><i class="bi bi-pencil-square"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="eliminarEmpleado('${cuil}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>`;
@@ -307,35 +309,7 @@ async function cargarEmpleadosEmpresa(cuit) {
     }
 }
 
-async function abrirModalEmpleado() {
-    document.getElementById('form-empleado').reset();
-    document.getElementById('empl-cuil-original').value = ""; // ALTA
-    document.getElementById('configuracion-gremio-empleado').innerHTML = '<p class="text-muted small italic mb-0">Seleccione un gremio para ver los cargos.</p>';
-    
-    await prepararModalEmpleado(); 
 
-    // Cálculo automático del Legajo (Arranca desde 1000 y sube de a 1 por empresa)
-    if (cuitEmpresaActiva) {
-        const cuitBuscado = cuitEmpresaActiva.toString().trim();
-        const empleadosDeEstaEmpresa = cacheEmpleados.filter(em => {
-            if (!em || !Array.isArray(em)) return false;
-            if ((em[9] || "").toString().trim() === cuitBuscado) return true;
-            return em.some(celda => celda && celda.toString().trim() === cuitBuscado);
-        });
-
-        let siguienteLegajo = 1000;
-        if (empleadosDeEstaEmpresa.length > 0) {
-            const legajosNumericos = empleadosDeEstaEmpresa.map(em => parseInt(em[0]) || 0);
-            const legajoMaximo = Math.max(...legajosNumericos);
-            if (legajoMaximo >= 1000) siguienteLegajo = legajoMaximo + 1;
-        }
-        document.getElementById('empl-legajo').value = siguienteLegajo;
-    }
-
-    const modalElement = document.getElementById('modalEmpleado');
-    let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
-    modal.show();
-}
 
 async function prepararModalEmpleado() {
     const selectGremio = document.getElementById('empl-gremio');
@@ -405,7 +379,7 @@ function actualizarOpcionesGremioEmpleado() {
                                 <span class="small text-muted text-uppercase" style="font-size:0.7rem;">${c.tipo}:</span>
                                 <div class="input-group input-group-sm" style="max-width: 105px;">
                                     <span class="input-group-text p-1" style="font-size:0.7rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
-                                    <input type="number" step="any" class="form-control form-control-sm p-1 fw-bold" id="val-cep-${i}" value="${c.valor}">
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm p-1 fw-bold" id="val-cep-${i}" value="${c.valor}" oninput="this.value = this.value.replace(',', '.')">
                                 </div>
                             </div>
                         </div>
@@ -557,8 +531,72 @@ function renderConceptosTemporales() {
         base.innerHTML = htmlBases + '<br><span class="text-muted small">Cargá conceptos en el Paso 4 para verlos aquí.</span>';
     }
 }
-async function editarEmpleado(cuil) {
-    const emp = cacheEmpleados.find(em => em[2].toString().trim() === cuil.toString().trim());
+function modoFormularioEmpleado(modo, cuil, legajo) {
+    const fieldset = document.getElementById('fieldset-empleado');
+    const footer = document.getElementById('footer-modal-empleado');
+    
+    if (modo === 'ver') {
+        if(fieldset) fieldset.disabled = true; // Bloquea todo el formulario
+        footer.innerHTML = `
+            <div class="d-flex gap-2 w-100">
+                <button type="button" class="btn btn-secondary fw-bold w-50 py-2 shadow-sm" data-bs-dismiss="modal">SALIR</button>
+                <button type="button" class="btn btn-warning fw-bold w-50 py-2 shadow-sm" onclick="editarEmpleado('${cuil}', '${legajo}')">EDITAR FICHA</button>
+            </div>
+        `;
+        document.getElementById('titulo-modal-empleado').innerHTML = '<i class="bi bi-person-vcard me-2"></i> FICHA DEL EMPLEADO';
+    } else {
+        if(fieldset) fieldset.disabled = false; // Desbloquea
+        document.getElementById('empl-legajo').disabled = true; // El legajo sigue bloqueado siempre
+        footer.innerHTML = `
+            <button type="submit" class="btn btn-success fw-bold w-100 py-3 shadow-sm text-uppercase">
+                <i class="bi bi-save me-2"></i> Guardar Perfil de Empleado
+            </button>
+        `;
+        document.getElementById('titulo-modal-empleado').innerHTML = '<i class="bi bi-person-gear me-2"></i> EDITAR EMPLEADO';
+    }
+}
+
+async function abrirModalEmpleado() {
+    document.getElementById('form-empleado').reset();
+    document.getElementById('empl-cuil-original').value = ""; 
+    document.getElementById('configuracion-gremio-empleado').innerHTML = '<p class="text-muted small italic mb-0">Seleccione un gremio para ver los cargos.</p>';
+    
+    await prepararModalEmpleado(); 
+
+    if (cuitEmpresaActiva) {
+        const cuitBuscado = cuitEmpresaActiva.toString().trim();
+        const empleadosDeEstaEmpresa = cacheEmpleados.filter(em => {
+            if (!em || !Array.isArray(em)) return false;
+            if ((em[9] || "").toString().trim() === cuitBuscado) return true;
+            return em.some(celda => celda && celda.toString().trim() === cuitBuscado);
+        });
+
+        let siguienteLegajo = 1000;
+        if (empleadosDeEstaEmpresa.length > 0) {
+            const legajosNumericos = empleadosDeEstaEmpresa.map(em => parseInt(em[0]) || 0);
+            const legajoMaximo = Math.max(...legajosNumericos);
+            if (legajoMaximo >= 1000) siguienteLegajo = legajoMaximo + 1;
+        }
+        document.getElementById('empl-legajo').value = siguienteLegajo;
+    }
+
+    modoFormularioEmpleado('nuevo', null, null);
+    document.getElementById('titulo-modal-empleado').innerHTML = '<i class="bi bi-person-plus me-2"></i> NUEVO EMPLEADO';
+
+    const modalElement = document.getElementById('modalEmpleado');
+    let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+async function cargarDatosEmpleadoEnModal(cuil, legajo) {
+    // Buscamos coincidencia ESTRICTA de CUIL y LEGAJO para evitar el cruce entre Juana y Walter
+    let emp;
+    if (legajo && legajo !== 'undefined') {
+        emp = cacheEmpleados.find(em => em[2].toString().trim() === cuil.toString().trim() && em[0].toString().trim() === legajo.toString().trim());
+    } else {
+        emp = cacheEmpleados.find(em => em[2].toString().trim() === cuil.toString().trim());
+    }
+
     if (!emp) return alert("No se encontró el registro del empleado.");
 
     await prepararModalEmpleado();
@@ -574,20 +612,48 @@ async function editarEmpleado(cuil) {
     selectGremio.value = emp[10] || "";
     actualizarOpcionesGremioEmpleado();
 
-    // Damos un respiro pequeño para que levante el HTML de categorías antes de tildar el valor base
-    setTimeout(() => {
-        const selectCat = document.getElementById('empl-categoria');
-        if (selectCat && emp[5]) selectCat.value = emp[5];
-        
-        try {
-            const guardados = JSON.parse(emp[11] || "[]");
-            document.querySelectorAll('.check-concepto-emp').forEach(chk => {
-                const c = JSON.parse(chk.value);
-                chk.checked = guardados.some(g => g.nombre === c.nombre);
-            });
-        } catch(err){}
-    }, 150);
+    return new Promise(resolve => {
+        setTimeout(() => {
+            const selectCat = document.getElementById('empl-categoria');
+            if (selectCat && emp[5]) selectCat.value = emp[5];
+            
+            try {
+                // AQUÍ ESTABA EL BUG: Reparado para que lea bien qué checkbox estaba tildado
+                const guardados = JSON.parse(emp[11] || "[]");
+                document.querySelectorAll('.check-concepto-emp').forEach(chk => {
+                    const nombreConcepto = chk.dataset.nombre;
+                    const conceptoGuardado = guardados.find(g => g.nombre === nombreConcepto);
+                    
+                    if (conceptoGuardado) {
+                        chk.checked = true;
+                        // También recupera el porcentaje o monto modificado
+                        const idNum = chk.id.split('-')[1];
+                        const inputVal = document.getElementById(`val-cep-${idNum}`);
+                        if (inputVal) inputVal.value = conceptoGuardado.valor;
+                    } else {
+                        chk.checked = false;
+                    }
+                });
+            } catch(err){ console.error("Error al cargar conceptos", err); }
+            
+            resolve();
+        }, 150);
+    });
+}
 
+async function verFichaEmpleado(cuil, legajo) {
+    await cargarDatosEmpleadoEnModal(cuil, legajo);
+    modoFormularioEmpleado('ver', cuil, legajo);
+    
+    const modalElement = document.getElementById('modalEmpleado');
+    let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+async function editarEmpleado(cuil, legajo) {
+    await cargarDatosEmpleadoEnModal(cuil, legajo);
+    modoFormularioEmpleado('editar', cuil, legajo);
+    
     const modalElement = document.getElementById('modalEmpleado');
     let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
     modal.show();
@@ -716,14 +782,19 @@ function procesarLoteLiquidacion() {
         return;
     }
 
-    // 🟢 NUEVA ALERTA ESTILIZADA DE CONTROL
     mostrarAlertaPersonalizada(
         "Recordatorio de Liquidación",
         "Antes de generar los recibos, verificá:\n\n✅ ¿Actualizaste el Seguro de Vida?\n✅ ¿El No Remunerativo es correcto?\n✅ ¿Están cargadas las horas?",
         "info",
         () => {
-            // Todo esto se ejecuta SOLO si el usuario hace clic en "Aceptar"
-            listaParaImprimir = cacheEmpleados.filter(em => seleccionados.includes((em[2] || "").toString().trim()));
+            // 🔴 CORRECCIÓN AQUÍ: Filtramos por CUIL y obligamos a que coincida con la EMPRESA ACTIVA
+            const cuitBuscado = cuitEmpresaActiva.toString().trim();
+            
+            listaParaImprimir = cacheEmpleados.filter(em => {
+                const cuil = (em[2] || "").toString().trim();
+                const cuitEmpresa = (em[9] || "").toString().trim();
+                return seleccionados.includes(cuil) && cuitEmpresa === cuitBuscado;
+            });
             
             const contenedor = document.getElementById('contenedor-conceptos');
             if (!contenedor) return;
@@ -822,30 +893,67 @@ function numeroALetras(num) {
     return `RECIBÍ CONFORME LA SUMA DE: ${millones(enteros).trim()} PESOS CON ${centavos}/100.`;
 }
 
+
 function imprimirRecibo() {
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
+    const nombreEmpresa = empActiva ? empActiva[0] : 'Empresa';
+    const direccionEmpresa = empActiva ? empActiva[1] : '';
+    const cuitEmpresa = empActiva ? empActiva[2] : '';
+
+    // Datos extra del panel mensual (Periodo, Banco, etc.)
+    const periodoLiq = document.getElementById('liq-periodo') ? document.getElementById('liq-periodo').value : "";
+    let textoPeriodo = periodoLiq;
+    if(periodoLiq) {
+        const [yy, mm] = periodoLiq.split('-');
+        const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        textoPeriodo = `${meses[parseInt(mm)-1]} de ${yy}`;
+    }
+    
+    const fechaPago = document.getElementById('liq-fecha-pago') ? document.getElementById('liq-fecha-pago').value : "";
+    let textoFechaPago = fechaPago ? fechaPago.split('-').reverse().join('/') : "";
+    
+    const banco = document.getElementById('liq-banco') ? document.getElementById('liq-banco').value : "";
+    const aportes = document.getElementById('liq-aportes') ? document.getElementById('liq-aportes').value : "";
 
     let htmlVentana = `<html><head><title>Recibos</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
-            @media print { .no-print { display: none; } } 
-            .recibo-card { border: 2px solid #333; font-family: monospace; font-size: 11px; margin-bottom: 20px; }
-            .tabla-recibo th, .tabla-recibo td { padding: 4px 8px !important; border-color: #999; }
-            .totales td { font-weight: bold; border-top: 2px solid #333 !important; }
+            @media print { 
+                .no-print { display: none; } 
+                body { margin: 0; padding: 0; background: #fff; }
+                .hoja-recibo { page-break-after: always; display: flex; flex-direction: column; height: 98vh; padding: 10mm; box-sizing: border-box; }
+                .mitad-recibo { flex: 1; padding: 5mm 0; box-sizing: border-box; }
+            } 
+            @media screen {
+                body { background: #525659; font-family: sans-serif; }
+                .hoja-recibo { background: white; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 15mm; box-shadow: 0 0 10px rgba(0,0,0,0.5); display: flex; flex-direction: column; box-sizing: border-box; }
+                .mitad-recibo { flex: 1; padding: 5mm 0; box-sizing: border-box; }
+                .btn-imprimir { position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 15px 30px; font-size: 18px; font-weight: bold; background: #ffc107; border: 2px solid #000; cursor: pointer; box-shadow: 4px 4px 0 #000; transition: 0.2s; }
+                .btn-imprimir:hover { background: #e0a800; }
+            }
+            .tabla-clasica { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 10px; margin-bottom: 5px; }
+            .tabla-clasica th, .tabla-clasica td { border: 1px solid #000; padding: 3px 5px; }
+            .tabla-clasica th { text-align: center; font-weight: bold; background-color: #fff; }
+            .tabla-conceptos { margin-bottom: 0; border-bottom: none; }
+            .tabla-conceptos td { border-top: none; border-bottom: none; }
+            .tabla-totales { margin-top: 0; border-top: none; }
+            .tabla-totales td { padding: 4px 5px; }
         </style>
-    </head><body class="p-4">
-        <div class="no-print text-center mb-4"><button class="btn btn-dark" onclick="window.print()">IMPRIMIR</button></div>
-        <div class="container">`;
+    </head><body>
+        <div class="no-print"><button class="btn-imprimir" onclick="window.print()">🖨️ IMPRIMIR RECIBOS</button></div>`;
 
-    listaParaImprimir.forEach(em => {
+    listaParaImprimir.forEach((em) => {
         let conceptos = [];
         try { conceptos = JSON.parse(em[11] || "[]"); } catch(e){}
 
+        const legajo = em[0] || '';
+        const nombreEmpleado = em[1] || '';
+        const cuil = em[2] || '';
+        let fechaIngreso = em[3] ? em[3].split('T')[0].split('-').reverse().join('/') : '';
+        const tarea = em[4] || '';
         const brutoUnitario = parseFloat(em[5]) || 0; 
         const horasTrabajadas = parseFloat(em[13]) || 0; 
         
-        // 🟢 DETECTAR MODALIDAD DINÁMICAMENTE DESDE LA CATEGORÍA DEL GREMIO
-        let labelPrincipal = "SUELDO BÁSICO"; 
+        let labelPrincipal = "Sueldo Básico"; 
         const gremioNombre = em[10];
         const gremioObj = cacheGremios.find(g => g[0] === gremioNombre);
 
@@ -853,27 +961,21 @@ function imprimirRecibo() {
             try {
                 const categorias = JSON.parse(decodeURIComponent(gremioObj[2]) || "[]");
                 const catEmpleado = categorias.find(c => parseFloat(c.valor) === brutoUnitario);
-                
                 if (catEmpleado) {
                     const tipoCat = (catEmpleado.tipo || "").toUpperCase();
-                    if (tipoCat.includes("HORA") || tipoCat.includes("POR HORA") || tipoCat.includes("HORAS")) {
-                        labelPrincipal = "HORAS NORMALES";
-                    }
+                    if (tipoCat.includes("HORA")) labelPrincipal = "Horas Normales";
                 } else if (horasTrabajadas > 0) {
-                    // Plan de respaldo si no machea exacto el monto pero tiene horas cargadas
-                    labelPrincipal = "HORAS NORMALES";
+                    labelPrincipal = "Horas Normales";
                 }
             } catch(err) {
-                if (horasTrabajadas > 0) labelPrincipal = "HORAS NORMALES";
+                if (horasTrabajadas > 0) labelPrincipal = "Horas Normales";
             }
         } else if (horasTrabajadas > 0) {
-            labelPrincipal = "HORAS NORMALES";
+            labelPrincipal = "Horas Normales";
         }
 
-        // 1. BASE HORAS / SUELDO: Redondeo estricto hacia abajo (Math.floor) según la modalidad detectada
-        let sueldoBaseCalculado = Math.floor(labelPrincipal === "HORAS NORMALES" ? (brutoUnitario * horasTrabajadas) : brutoUnitario);
+        let sueldoBaseCalculado = labelPrincipal === "Horas Normales" ? (brutoUnitario * horasTrabajadas) : brutoUnitario;
         
-        // Diccionario de configuración por defecto
         let configGremio = {
             "ADICIONAL": 4, 
             "PRESENTISMO": 20, 
@@ -885,110 +987,234 @@ function imprimirRecibo() {
             "SEGURO DE VIDA": 0
         };
 
-        // Banderas para saber qué conceptos tildaste en la ficha del empleado
+        // 1. CARGAMOS LA BASE DEL GREMIO
+        if (gremioObj && gremioObj[3]) {
+            try {
+                const conceptosGlobales = JSON.parse(decodeURIComponent(gremioObj[3]));
+                conceptosGlobales.forEach(cg => {
+                    let nom = cg.nombre.toUpperCase();
+                    let valor = parseFloat(cg.valor);
+                    if(!isNaN(valor)) {
+                        if(nom.includes("ADICIONAL")) configGremio["ADICIONAL"] = valor;
+                        if(nom.includes("PRESENTISMO")) configGremio["PRESENTISMO"] = valor;
+                        if(nom.includes("NO REMUNERATIVO")) configGremio["NO REMUNERATIVO"] = valor;
+                        if(nom.includes("JUBILACIÓN") || nom.includes("JUBILACION")) configGremio["JUBILACIÓN"] = valor;
+                        if(nom.includes("LEY 19032")) configGremio["LEY 19032"] = valor;
+                        if(nom.includes("OBRA SOCIAL")) configGremio["OBRA SOCIAL"] = valor;
+                        if(nom.includes("SINDICAL") || nom.includes("SINDICATO")) configGremio["CUOTA SINDICAL"] = valor;
+                        if(nom.includes("SEGURO DE VIDA")) configGremio["SEGURO DE VIDA"] = valor;
+                    }
+                });
+            } catch(err) {}
+        }
+
         let tieneAdicional = false, tienePresentismo = false, tieneNoRem = false;
         let tieneJubilacion = false, tieneLey = false, tieneObraSocial = false;
         let tieneCuota = false, tieneSeguro = false;
 
-        // Leemos los conceptos guardados en el empleado y actualizamos los porcentajes/montos
+        // 2. CORRECCIÓN ABSOLUTA: El número que guardaste en la ficha del empleado MANDA sobre todo.
         conceptos.forEach(c => {
             let nom = c.nombre.toUpperCase();
-            let valorEditado = parseFloat(c.valor) || 0;
-
-            if(nom.includes("ADICIONAL")) { configGremio["ADICIONAL"] = valorEditado; tieneAdicional = true; }
-            if(nom.includes("PRESENTISMO")) { configGremio["PRESENTISMO"] = valorEditado; tienePresentismo = true; }
-            if(nom.includes("NO REMUNERATIVO")) { configGremio["NO REMUNERATIVO"] = valorEditado; tieneNoRem = true; }
-            if(nom.includes("JUBILACIÓN") || nom.includes("JUBILACION")) { configGremio["JUBILACIÓN"] = valorEditado; tieneJubilacion = true; }
-            if(nom.includes("LEY 19032")) { configGremio["LEY 19032"] = valorEditado; tieneLey = true; }
-            if(nom.includes("OBRA SOCIAL")) { configGremio["OBRA SOCIAL"] = valorEditado; tieneObraSocial = true; }
-            if(nom.includes("SINDICAL") || nom.includes("SINDICATO")) { configGremio["CUOTA SINDICAL"] = valorEditado; tieneCuota = true; }
-            if(nom.includes("SEGURO DE VIDA")) { configGremio["SEGURO DE VIDA"] = valorEditado; tieneSeguro = true; }
+            let valorEditado = parseFloat(c.valor);
+            
+            // isNaN garantiza que hasta un 0 se respete si lo guardaste manual.
+            if(!isNaN(valorEditado)) {
+                if(nom.includes("ADICIONAL")) { configGremio["ADICIONAL"] = valorEditado; tieneAdicional = true; }
+                if(nom.includes("PRESENTISMO")) { configGremio["PRESENTISMO"] = valorEditado; tienePresentismo = true; }
+                if(nom.includes("NO REMUNERATIVO")) { configGremio["NO REMUNERATIVO"] = valorEditado; tieneNoRem = true; }
+                if(nom.includes("JUBILACIÓN") || nom.includes("JUBILACION")) { configGremio["JUBILACIÓN"] = valorEditado; tieneJubilacion = true; }
+                if(nom.includes("LEY 19032")) { configGremio["LEY 19032"] = valorEditado; tieneLey = true; }
+                if(nom.includes("OBRA SOCIAL")) { configGremio["OBRA SOCIAL"] = valorEditado; tieneObraSocial = true; }
+                if(nom.includes("SINDICAL") || nom.includes("SINDICATO")) { configGremio["CUOTA SINDICAL"] = valorEditado; tieneCuota = true; }
+                if(nom.includes("SEGURO DE VIDA")) { configGremio["SEGURO DE VIDA"] = valorEditado; tieneSeguro = true; }
+            }
         });
 
-        // 2. EJECUTAR FÓRMULAS MATEMÁTICAS ESTRICTAS (Con Math.floor para redondear siempre hacia abajo)
-        let valAdicional = Math.floor(sueldoBaseCalculado * (configGremio["ADICIONAL"] / 100));
-        let valPresentismo = Math.floor((sueldoBaseCalculado + valAdicional) * (configGremio["PRESENTISMO"] / 100));
-        let valNoRem = Math.floor(configGremio["NO REMUNERATIVO"]);
+        // 3. FÓRMULAS
+        let valAdicional = sueldoBaseCalculado * (configGremio["ADICIONAL"] / 100);
+        let valPresentismo = (sueldoBaseCalculado + valAdicional) * (configGremio["PRESENTISMO"] / 100);
+        let valNoRem = parseFloat(configGremio["NO REMUNERATIVO"]) || 0;
         
         let baseRemunerativa = sueldoBaseCalculado + valAdicional + valPresentismo;
-        // La Obra Social suma los remunerativos + el no remunerativo
         let baseObraSocial = baseRemunerativa + valNoRem; 
 
-        let valJubilacion = Math.floor(baseRemunerativa * (configGremio["JUBILACIÓN"] / 100));
-        let valLey = Math.floor(baseRemunerativa * (configGremio["LEY 19032"] / 100));
-        let valCuota = Math.floor(baseRemunerativa * (configGremio["CUOTA SINDICAL"] / 100));
-        let valObraSocial = Math.floor(baseObraSocial * (configGremio["OBRA SOCIAL"] / 100));
-        let valSeguro = Math.floor(configGremio["SEGURO DE VIDA"]); 
+        let valJubilacion = baseRemunerativa * (configGremio["JUBILACIÓN"] / 100);
+        let valLey = baseRemunerativa * (configGremio["LEY 19032"] / 100);
+        let valCuota = baseRemunerativa * (configGremio["CUOTA SINDICAL"] / 100);
+        let valObraSocial = baseObraSocial * (configGremio["OBRA SOCIAL"] / 100);
+        let valSeguro = parseFloat(configGremio["SEGURO DE VIDA"]) || 0; 
 
-        // 3. ESTRUCTURA DE LA TABLA Y COLUMNAS
         let htmlFilas = "";
         let tRem = 0, tNoRem = 0, tDesc = 0;
 
-        // Función interna para inyectar filas en la columna correcta
-        function agregarFila(nombre, rem, noRem, desc) {
+        function agregarFila(nombre, base, porcentaje, rem, desc, noRem) {
             if (rem === 0 && noRem === 0 && desc === 0) return;
-            tRem += rem;
-            tNoRem += noRem;
-            tDesc += desc;
+            tRem += rem; tNoRem += noRem; tDesc += desc;
             htmlFilas += `<tr>
-                <td>${nombre}</td>
-                <td class="text-end">${rem > 0 ? rem : ''}</td>
-                <td class="text-end">${noRem > 0 ? noRem : ''}</td>
-                <td class="text-end">${desc > 0 ? desc : ''}</td>
+                <td style="text-align: left;">${nombre}</td>
+                <td style="text-align: center;">${base}</td>
+                <td style="text-align: center;">${porcentaje}</td>
+                <td style="text-align: right;">${rem > 0 ? '$ ' + rem.toFixed(2) : ''}</td>
+                <td style="text-align: right;">${desc > 0 ? '$ ' + desc.toFixed(2) : ''}</td>
+                <td style="text-align: right;">${noRem > 0 ? '$ ' + noRem.toFixed(2) : ''}</td>
             </tr>`;
         }
 
-        // Agregamos al recibo la fila principal de forma dinámica
-        agregarFila(labelPrincipal, sueldoBaseCalculado, 0, 0);
-        
-        if(tieneAdicional) agregarFila(`ADICIONAL (${configGremio["ADICIONAL"]}%)`, valAdicional, 0, 0);
-        if(tienePresentismo) agregarFila(`PRESENTISMO (${configGremio["PRESENTISMO"]}%)`, valPresentismo, 0, 0);
-        if(tieneNoRem) agregarFila("NO REMUNERATIVO", 0, valNoRem, 0);
-        
-        if(tieneJubilacion) agregarFila(`JUBILACIÓN (${configGremio["JUBILACIÓN"]}%)`, 0, 0, valJubilacion);
-        if(tieneLey) agregarFila(`LEY 19032 (${configGremio["LEY 19032"]}%)`, 0, 0, valLey);
-        if(tieneObraSocial) agregarFila(`OBRA SOCIAL (${configGremio["OBRA SOCIAL"]}%)`, 0, 0, valObraSocial);
-        if(tieneCuota) agregarFila(`CUOTA SINDICAL (${configGremio["CUOTA SINDICAL"]}%)`, 0, 0, valCuota);
-        if(tieneSeguro && valSeguro > 0) agregarFila("SEGURO DE VIDA", 0, 0, valSeguro);
+        agregarFila(labelPrincipal, "30", "-", sueldoBaseCalculado, 0, 0);
+        if(tieneAdicional) agregarFila("Adicional", "", configGremio["ADICIONAL"], valAdicional, 0, 0);
+        if(tienePresentismo) agregarFila("Presentismo", "", configGremio["PRESENTISMO"], valPresentismo, 0, 0);
+        if(tieneNoRem) agregarFila("No Remunerativo", "", "", 0, 0, valNoRem);
+        if(tieneJubilacion) agregarFila("Jubilación", "", configGremio["JUBILACIÓN"], 0, valJubilacion, 0);
+        if(tieneLey) agregarFila("Ley 19032", "", configGremio["LEY 19032"], 0, valLey, 0);
+        if(tieneObraSocial) agregarFila("Obra Social", "", configGremio["OBRA SOCIAL"], 0, valObraSocial, 0);
+        if(tieneCuota) agregarFila("Cuota Sindical", "", configGremio["CUOTA SINDICAL"], 0, valCuota, 0);
+        if(tieneSeguro && valSeguro > 0) agregarFila("Seguro de Vida", "", "", 0, valSeguro, 0);
 
-        let neto = (tRem + tNoRem) - tDesc;
+        let netoPreliminar = (tRem + tNoRem) - tDesc;
+        let netoRedondeado = Math.ceil(netoPreliminar);
+        let valorRedondeo = parseFloat((netoRedondeado - netoPreliminar).toFixed(2));
+
+        if (valorRedondeo > 0) {
+            agregarFila("Redondeo", "", "", 0, 0, valorRedondeo);
+        }
+
+        let neto = (tRem + tNoRem) - tDesc; 
         let textoNeto = typeof numeroALetras === 'function' ? numeroALetras(neto) : '';
-        
-        htmlVentana += `
-        <div class="card p-3 recibo-card">
-            <h6>${empActiva ? empActiva[0] : 'Empresa'} - Empleado: <span class="text-uppercase">${em[1]}</span></h6>
-            <table class="table table-sm tabla-recibo table-bordered mb-0 mt-3">
-                <thead class="table-light text-center">
-                    <tr>
-                        <th class="text-start">CONCEPTO</th>
-                        <th>REMUNERATIVO</th>
-                        <th>NO REMUNERATIVO</th>
-                        <th>DESCUENTO</th>
+
+        // DISEÑO CALCADO DE LA IMAGEN
+        function generarMitadRecibo(tipoCopia) {
+            return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
+                <div>
+                    <h4 style="margin: 0; font-weight: bold; text-transform: uppercase;">${nombreEmpresa}</h4>
+                    <div style="font-size: 10px; margin-top: 2px;">CUIT: ${cuitEmpresa}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: bold; font-size: 11px;">${tipoCopia}</div>
+                    <div style="font-weight: bold; font-size: 11px;">Legajo Nº: ${legajo}</div>
+                </div>
+            </div>
+
+            <table class="tabla-clasica">
+                <tr>
+                    <th style="width: 25%">Nombre y Apellido</th>
+                    <th style="width: 15%">Fecha Ingreso</th>
+                    <th style="width: 20%">CUIL</th>
+                    <th style="width: 20%">Dep. en Caja de Ahorro Nº</th>
+                    <th style="width: 20%">Sueldo Básico</th>
+                </tr>
+                <tr>
+                    <td style="text-align: center;">${nombreEmpleado}</td>
+                    <td style="text-align: center;">${fechaIngreso}</td>
+                    <td style="text-align: center;">${cuil}</td>
+                    <td style="text-align: center;"></td>
+                    <td style="text-align: center;">$ ${brutoUnitario.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <th>Fecha Depósito</th>
+                    <th colspan="2">Banco de Depósito</th>
+                    <th>Fecha Último Depósito</th>
+                    <th>Calificación Profesional</th>
+                </tr>
+                <tr>
+                    <td style="text-align: center;">${textoFechaPago}</td>
+                    <td colspan="2" style="text-align: center;">${banco}</td>
+                    <td style="text-align: center;">${aportes}</td>
+                    <td style="text-align: center;">${tarea}</td>
+                </tr>
+                <tr>
+                    <th colspan="2">Período Abonado</th>
+                    <th colspan="2">Domicilio de Pago</th>
+                    <th>Tarea Desempeñada</th>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: center;">${textoPeriodo.toUpperCase()}</td>
+                    <td colspan="2" style="text-align: center;">${direccionEmpresa}</td>
+                    <td style="text-align: center;">${tarea}</td>
+                </tr>
+            </table>
+
+            <table class="tabla-clasica tabla-conceptos">
+                <thead>
+                    <tr style="border-bottom: 1px solid #000;">
+                        <th style="width: 35%">Descripción de Conceptos</th>
+                        <th style="width: 8%">Base</th>
+                        <th style="width: 7%">%</th>
+                        <th style="width: 16.6%">Remuneraciones</th>
+                        <th style="width: 16.6%">Descuentos</th>
+                        <th style="width: 16.6%">Conceptos No Remun.</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${htmlFilas}
-                    <tr class="totales table-light">
-                        <td class="text-end"><strong>SUBTOTALES:</strong></td>
-                        <td class="text-end"><strong>$${tRem}</strong></td>
-                        <td class="text-end"><strong>$${tNoRem}</strong></td>
-                        <td class="text-end"><strong>$${tDesc}</strong></td>
-                    </tr>
+                    <tr><td colspan="6" style="height: 40px;"></td></tr>
                 </tbody>
             </table>
-            <div class="d-flex justify-content-between align-items-end mt-2 fs-6">
-                <small class="text-muted fw-bold" style="font-size: 9px;">${textoNeto}</small>
-                <strong>NETO A COBRAR: $${neto}</strong>
+
+            <table class="tabla-clasica tabla-totales">
+                <tr>
+                    <td colspan="3" rowspan="3" style="width: 50%; border-top: 1px solid #000; vertical-align: top; border-right: 1px solid #000;"></td>
+                    <td colspan="2" style="text-align: center; font-weight: bold; border-top: 1px solid #000;">Total Bruto</td>
+                    <td style="text-align: right; font-weight: bold; border-top: 1px solid #000;">$ ${tRem.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: center; font-weight: bold;">TOTAL Remunerativo</td>
+                    <td style="text-align: right; font-weight: bold;">$ ${tRem.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: center; font-weight: bold;">TOTAL No Remunerativo</td>
+                    <td style="text-align: right; font-weight: bold;">$ ${tNoRem.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="text-align: center; font-weight: bold;">Subtotal:</td>
+                    <td style="text-align: right; font-weight: bold; width: 16.6%;">$ ${tRem.toFixed(2)}</td>
+                    <td style="text-align: right; font-weight: bold; width: 16.6%;">$ ${tDesc.toFixed(2)}</td>
+                    <td style="text-align: right; font-weight: bold; width: 16.6%;">$ ${tNoRem.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="border: none;"></td>
+                    <td colspan="2" style="text-align: right; font-weight: bold; font-size: 11px;">TOTAL NETO</td>
+                    <td style="text-align: right; font-weight: bold; font-size: 11px;">$ ${neto.toFixed(2)}</td>
+                </tr>
+            </table>
+
+            <div style="font-size: 10px; margin-top: 5px;">
+                <p style="margin: 0;">Recibí conforme la suma de:<br><strong style="font-size: 11px;">SON: ${textoNeto}</strong></p>
+                <div style="display: flex; justify-content: space-between; margin-top: 25px;">
+                    <p style="margin: 0; color: #555; font-size: 8px; width: 60%;">
+                        En concepto de mis haberes correspondientes al período arriba indicado y según la presente liquidación, dejando constancia de haber recibido un duplicado de este recibo.
+                    </p>
+                    <div style="text-align: center; width: 30%; border-top: 1px solid #000; padding-top: 5px;">
+                        Firma del Empleado
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        htmlVentana += `
+        <div class="hoja-recibo">
+            <div class="mitad-recibo">
+                ${generarMitadRecibo('ORIGINAL PARA EL EMPLEADOR')}
             </div>
-        </div><hr>`;
+            <div style="border-top: 1px dashed #666; margin: 10px 0;"></div>
+            <div class="mitad-recibo">
+                ${generarMitadRecibo('DUPLICADO PARA EL EMPLEADO')}
+            </div>
+        </div>`;
     });
 
-    htmlVentana += `</div></body></html>`;
+    htmlVentana += `</body></html>`;
+    
     const win = window.open('', '_blank');
     win.document.write(htmlVentana);
     win.document.close();
-    bootstrap.Modal.getInstance(document.getElementById('modalLiquidacion'))?.hide();
-    resetearVistaLiquidacion();
+    
+    const modalEl = document.getElementById('modalLiquidacion');
+    if(modalEl) {
+        const inst = bootstrap.Modal.getInstance(modalEl);
+        if(inst) inst.hide();
+    }
+    if(typeof resetearVistaLiquidacion === 'function') resetearVistaLiquidacion();
 }
 
 // NUEVA FUNCIÓN: Solo se encarga de mostrar los ocultos y borrar el botón
@@ -1161,10 +1387,12 @@ function renderizarTablaGremios() {
         
         return `
         <tr>
-            <td class="fw-bold text-uppercase">${g[0]}</td>
-            <td>${g[1] || '---'}</td>
-            <td><span class="badge bg-success">Configurado</span></td>
-            <td class="text-end">
+            <td class="fw-bold text-uppercase ps-3">
+                <i class="bi bi-folder2-open text-warning me-2"></i> ${g[0]}
+            </td>
+            <td class="text-muted fw-bold">${g[1] || '---'}</td>
+            <td><span class="badge bg-success-subtle text-success border border-success">Configurado</span></td>
+            <td class="text-end pe-3">
                 <button class="btn btn-sm btn-outline-warning me-1" onclick="prepararEdicionGremio('${g[0]}', '${g[1]}', '${catsEscaped}', '${consEscaped}')" title="Editar Gremio">
                     <i class="bi bi-pencil"></i>
                 </button>
@@ -1174,6 +1402,32 @@ function renderizarTablaGremios() {
             </td>
         </tr>`;
     }).join('');
+}
+
+function renderizarConceptosTemporales() {
+    const lista = document.getElementById('lista-conceptos-gremio');
+    const base = document.getElementById('lista-conceptos-base');
+    if (!lista || !base) return;
+
+    // Se agrega step="any" al input para que acepte decimales en edición
+    lista.innerHTML = conceptosTemporales.filter(c => !c.esCombinado).map((c, i) => `
+        <div class="col-md-4 mb-2">
+            <div class="p-2 border rounded bg-white shadow-sm position-relative">
+                <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="conceptosTemporales.splice(${i},1);renderizarConceptosTemporales()"></i>
+                <div class="fw-bold small text-uppercase">${c.nombre}</div>
+                <div class="input-group input-group-sm mt-1">
+                    <span class="input-group-text">${c.modo === 'porcentaje' ? '%' : '$'}</span>
+                    <input type="number" step="any" class="form-control" value="${c.valor}" oninput="conceptosTemporales[${i}].valor = parseFloat(this.value)||0">
+                </div>
+            </div>
+        </div>`).join('');
+
+    // Regeneramos los checkboxes base
+    base.innerHTML = conceptosTemporales.map((c, i) => `
+        <div class="form-check form-check-inline border rounded px-2 mb-1">
+            <input class="form-check-input" type="checkbox" id="base-${i}">
+            <label class="form-check-label small" for="base-${i}">${c.nombre}</label>
+        </div>`).join('');
 }
 
 function abrirModalGremio() {
@@ -1222,31 +1476,7 @@ function renderizarConceptosGremios() {
         </div>
     `).join('');
 }
-function renderizarConceptosTemporales() {
-    const lista = document.getElementById('lista-conceptos-gremio');
-    const base = document.getElementById('lista-conceptos-base');
-    if (!lista || !base) return;
 
-    // Renderizado simplificado
-    lista.innerHTML = conceptosTemporales.filter(c => !c.esCombinado).map((c, i) => `
-        <div class="col-md-4 mb-2">
-            <div class="p-2 border rounded bg-white shadow-sm position-relative">
-                <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="conceptosTemporales.splice(${i},1);renderizarConceptosTemporales()"></i>
-                <div class="fw-bold small text-uppercase">${c.nombre}</div>
-                <div class="input-group input-group-sm mt-1">
-                    <span class="input-group-text">${c.modo === 'porcentaje' ? '%' : '$'}</span>
-                    <input type="number" class="form-control" value="${c.valor}" oninput="conceptosTemporales[${i}].valor = parseFloat(this.value)||0">
-                </div>
-            </div>
-        </div>`).join('');
-
-    // Regeneramos los checkboxes base
-    base.innerHTML = conceptosTemporales.map((c, i) => `
-        <div class="form-check form-check-inline border rounded px-2 mb-1">
-            <input class="form-check-input" type="checkbox" id="base-${i}">
-            <label class="form-check-label small" for="base-${i}">${c.nombre}</label>
-        </div>`).join('');
-}
 
 async function guardarGremio(e) {
     e.preventDefault();

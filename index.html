@@ -151,24 +151,34 @@
             
 
             <section id="sec-gremios" class="seccion-app d-none">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h4 class="fw-bold text-uppercase"><i class="bi bi-person-badge text-warning me-2"></i> Gremios</h4>
-                    <button class="btn btn-warning fw-bold" onclick="abrirModalGremio()">NUEVO GREMIO</button>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm rounded-4 bg-dark text-white p-3 h-100 d-flex flex-row align-items-center">
+                            <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;"><i class="bi bi-person-badge fs-5"></i></div>
+                            <div><h6 class="mb-0 fw-bold text-uppercase">Mis Gremios</h6><small class="opacity-75">Convenios configurados</small></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100 d-flex flex-row align-items-center hover-card cursor-pointer" onclick="abrirModalGremio()">
+                            <div class="rounded-circle bg-light text-warning d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px; border: 1px dashed orange;"><i class="bi bi-plus-lg fs-5"></i></div>
+                            <div><h6 class="mb-0 fw-bold text-uppercase">Nuevo Gremio</h6><small class="text-muted">Crear convenio y categorías</small></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light small text-uppercase">
-                            <tr>
-                                <th id="th-check-header" class="d-none text-center" style="width: 50px;">
-                                    <input type="checkbox" onclick="toggleTodosEmpleados(this)">
-                                </th>
-                                <th>Nombre y Apellido</th>
-                                <th>CUIL</th>
-                                <th>Tarea</th>
-                                <th class="text-end pe-3">Acciones</th> </tr>
-                        </thead>
-                        <tbody id="tabla-gremios-cuerpo"></tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 small">
+                            <thead class="table-light text-uppercase">
+                                <tr>
+                                    <th class="ps-3">Nombre del Gremio</th>
+                                    <th>Actividad</th>
+                                    <th>Estado</th>
+                                    <th class="text-end pe-3">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-gremios-cuerpo"></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -205,87 +215,86 @@
     </div>
     
 
-    <div class="modal fade" id="modalEmpleado" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <form id="form-empleado" onsubmit="guardarEmpleado(event)" class="modal-content border-0 rounded-4 shadow">
-    <div class="modal-header border-0 bg-success text-white p-4">
-        <h5 class="modal-title fw-bold"><i class="bi bi-person-plus me-2"></i> FICHA DEL EMPLEADO</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-    </div>
-    
-    <div class="modal-body p-4">
-        <div class="row g-3">
-            <input type="hidden" id="empl-cuil-original" value="">
-
-            <div class="col-md-3">
-                <label class="form-label small fw-bold text-uppercase">Legajo</label>
-                <input type="text" id="empl-legajo" class="form-control bg-light text-center fw-bold text-danger" placeholder="Autocalculado" disabled>
-            </div>
-            <div class="col-md-9">
-                <label class="form-label small fw-bold text-uppercase">Nombre Completo</label>
-                <input type="text" id="empl-nombre" class="form-control" placeholder="Apellido y Nombre" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label small fw-bold text-uppercase">CUIL</label>
-                <input type="text" id="empl-cuil" class="form-control" placeholder="00-00000000-0" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label small fw-bold text-uppercase">Fecha Ingreso</label>
-                <input type="date" id="empl-ingreso" class="form-control" required>
+  <div class="modal fade" id="modalEmpleado" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form id="form-empleado" onsubmit="guardarEmpleado(event)" class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-0 bg-success text-white p-4">
+                <h5 class="modal-title fw-bold" id="titulo-modal-empleado"><i class="bi bi-person-plus me-2"></i> FICHA DEL EMPLEADO</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             
-            <hr class="my-3">
+            <div class="modal-body p-4">
+                <fieldset id="fieldset-empleado">
+                    <div class="row g-3">
+                        <input type="hidden" id="empl-cuil-original" value="">
+
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-uppercase">Legajo</label>
+                            <input type="text" id="empl-legajo" class="form-control bg-light text-center fw-bold text-danger" placeholder="Autocalculado" disabled>
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label small fw-bold text-uppercase">Nombre Completo</label>
+                            <input type="text" id="empl-nombre" class="form-control" placeholder="Apellido y Nombre" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-uppercase">CUIL</label>
+                            <input type="text" id="empl-cuil" class="form-control" placeholder="00-00000000-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-uppercase">Fecha Ingreso</label>
+                            <input type="date" id="empl-ingreso" class="form-control" required>
+                        </div>
+                        
+                        <hr class="my-3">
+                        
+                        <div class="col-md-12">
+                            <div class="p-3 border border-primary rounded-3 bg-white">
+                                <label class="form-label fw-bold text-primary text-uppercase small"><i class="bi bi-award"></i> Asignar Gremio</label>
+                                <select id="empl-gremio" class="form-select border-primary mb-3" onchange="actualizarOpcionesGremioEmpleado()" required>
+                                    <option value="">Seleccione un gremio...</option>
+                                </select>
+                                <div id="configuracion-gremio-empleado">
+                                    <p class="text-muted small italic mb-0">Al elegir un gremio, aparecerán aquí las categorías y conceptos disponibles.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <div class="p-3 border border-warning rounded-3 bg-light">
+                                <label class="form-label fw-bold text-warning text-uppercase small"><i class="bi bi-wallet2"></i> Modalidad de Pago</label>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-4">
+                                        <input type="radio" name="modalidad" id="mod-mes" value="mensual" checked onclick="toggleCamposModalidad()">
+                                        <label for="mod-mes" class="fw-bold small">Mensual</label>
+                                    </div>
+                                    <div class="col-4">
+                                        <input type="radio" name="modalidad" id="mod-dia" value="diario" onclick="toggleCamposModalidad()">
+                                        <label for="mod-dia" class="fw-bold small">Diario</label>
+                                    </div>
+                                    <div class="col-4">
+                                        <input type="radio" name="modalidad" id="mod-hora" value="horaria" onclick="toggleCamposModalidad()">
+                                        <label for="mod-hora" class="fw-bold small">Por Hora</label>
+                                    </div>
+                                </div>
+                                <div id="campos-extra-modalidad" class="d-none">
+                                    <input type="number" id="empl-cantidad-modalidad" class="form-control form-control-sm" placeholder="Cantidad de días o horas">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-uppercase">Tarea Específica / Observaciones</label>
+                            <input type="text" id="empl-tarea" class="form-control" placeholder="Ej: Operario de planta">
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
             
-            <div class="col-md-12">
-                <div class="p-3 border border-primary rounded-3 bg-white">
-                    <label class="form-label fw-bold text-primary text-uppercase small"><i class="bi bi-award"></i> Asignar Gremio</label>
-                    <select id="empl-gremio" class="form-select border-primary mb-3" onchange="actualizarOpcionesGremioEmpleado()" required>
-                        <option value="">Seleccione un gremio...</option>
-                    </select>
-                    <div id="configuracion-gremio-empleado">
-                        <p class="text-muted small italic mb-0">Al elegir un gremio, aparecerán aquí las categorías y conceptos disponibles.</p>
-                    </div>
+            <div class="modal-footer border-0 p-4 pt-0" id="footer-modal-empleado">
                 </div>
-            </div>
-
-            <div class="col-md-12">
-                <div class="p-3 border border-warning rounded-3 bg-light">
-                    <label class="form-label fw-bold text-warning text-uppercase small"><i class="bi bi-wallet2"></i> Modalidad de Pago</label>
-                    <div class="row g-2 mb-2">
-                        <div class="col-4">
-                            <input type="radio" name="modalidad" id="mod-mes" value="mensual" checked onclick="toggleCamposModalidad()">
-                            <label for="mod-mes" class="fw-bold small">Mensual</label>
-                        </div>
-                        <div class="col-4">
-                            <input type="radio" name="modalidad" id="mod-dia" value="diario" onclick="toggleCamposModalidad()">
-                            <label for="mod-dia" class="fw-bold small">Diario</label>
-                        </div>
-                        <div class="col-4">
-                            <input type="radio" name="modalidad" id="mod-hora" value="horaria" onclick="toggleCamposModalidad()">
-                            <label for="mod-hora" class="fw-bold small">Por Hora</label>
-                        </div>
-                    </div>
-                    <div id="campos-extra-modalidad" class="d-none">
-                        <input type="number" id="empl-cantidad-modalidad" class="form-control form-control-sm" placeholder="Cantidad de días o horas">
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-12">
-                <label class="form-label small fw-bold text-uppercase">Tarea Específica / Observaciones</label>
-                <input type="text" id="empl-tarea" class="form-control" placeholder="Ej: Operario de planta">
-            </div>
-        </div>
+        </form>
     </div>
-    
-    <div class="modal-footer border-0 p-4 pt-0">
-        <button type="submit" class="btn btn-success fw-bold w-100 py-3 shadow-sm text-uppercase">
-            <i class="bi bi-save me-2"></i> Guardar Perfil de Empleado
-        </button>
-    </div>
-</form>
-        </div>
-    </div>
+</div>
 
     <!-- MODAL GREMIO RECONSTRUIDO -->
 <div class="modal fade" id="modalGremio">
@@ -320,7 +329,7 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="xs-label mb-1">Valor ($)</label>
-                                <input type="number" id="cat-valor" class="form-control form-control-sm" placeholder="4500">
+                                <input type="number" id="cat-valor" class="form-control form-control-sm" placeholder="4500" step="any">
                             </div>
                             <div class="col-md-3">
                                 <label class="xs-label mb-1">Tipo</label>
@@ -363,7 +372,7 @@
                             </div>
                             <div class="col-md-2">
                                 <label id="label-con-valor" class="xs-label mb-1 fw-bold">Valor</label>
-                                <input type="number" id="con-valor" class="form-control form-control-sm" placeholder="0.00">
+                                <input type="number" id="con-valor" class="form-control form-control-sm" placeholder="0.00" step="any">
                             </div>
                             <div class="col-md-1">
                                 <button type="button" class="btn btn-success btn-sm w-100" onclick="agregarConceptoTemporal()">
@@ -404,7 +413,7 @@
                             </div>
                             <div class="col-md-2">
                                 <label class="xs-label mb-1 fw-bold">Valor Final</label>
-                                <input type="number" id="comb-valor" class="form-control form-control-sm" placeholder="0.00">
+                                <input type="number" id="comb-valor" class="form-control form-control-sm" placeholder="0.00" step="any">
                             </div>
                             <div class="col-md-1">
                                 <button type="button" class="btn btn-warning btn-sm w-100" onclick="crearConceptoCombinado()">
