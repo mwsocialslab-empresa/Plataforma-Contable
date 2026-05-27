@@ -332,10 +332,14 @@ function actualizarOpcionesGremioEmpleado() {
         const categorias = JSON.parse(decodeURIComponent(opt.dataset.cats));
         let conceptos = JSON.parse(decodeURIComponent(opt.dataset.cons));
 
-        // Garantizamos que en la planilla del empleado figuren todos para poder tildarlos
+        // 🔴 FILTRO: Eliminamos el presentismo combinado (cualquiera que diga COMB) para que no moleste en la ficha
+        conceptos = conceptos.filter(c => !c.nombre.toUpperCase().includes("(COMB"));
+
+        // Garantizamos que en la planilla del empleado figuren todos, INCLUYENDO ANTIGÜEDAD
         const conceptosBaseDefault = [
-            { nombre: "ADICIONAL", tipo: "REM", modo: "porcentaje", valor: 4, esCombinado: false },
+            { nombre: "ADICIONAL 1", tipo: "REM", modo: "porcentaje", valor: 4, esCombinado: false },
             { nombre: "PRESENTISMO", tipo: "REM", modo: "porcentaje", valor: 20, esCombinado: false },
+            { nombre: "ANTIGÜEDAD", tipo: "REM", modo: "porcentaje", valor: 1, esCombinado: false },
             { nombre: "NO REMUNERATIVO", tipo: "NO_REM", modo: "monto", valor: 20000, esCombinado: false },
             { nombre: "JUBILACIÓN", tipo: "DESC", modo: "porcentaje", valor: 3, esCombinado: false },
             { nombre: "LEY 19032", tipo: "DESC", modo: "porcentaje", valor: 3, esCombinado: false },
@@ -379,7 +383,7 @@ function actualizarOpcionesGremioEmpleado() {
                                 <span class="small text-muted text-uppercase" style="font-size:0.7rem;">${c.tipo}:</span>
                                 <div class="input-group input-group-sm" style="max-width: 105px;">
                                     <span class="input-group-text p-1" style="font-size:0.7rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm p-1 fw-bold" id="val-cep-${i}" value="${c.valor}" oninput="this.value = this.value.replace(',', '.')">
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm p-1 fw-bold bg-white" id="val-cep-${i}" value="${c.valor}" oninput="this.value = this.value.replace(',', '.')">
                                 </div>
                             </div>
                         </div>
@@ -589,7 +593,6 @@ async function abrirModalEmpleado() {
 }
 
 async function cargarDatosEmpleadoEnModal(cuil, legajo) {
-    // Buscamos coincidencia ESTRICTA de CUIL y LEGAJO para evitar el cruce entre Juana y Walter
     let emp;
     if (legajo && legajo !== 'undefined') {
         emp = cacheEmpleados.find(em => em[2].toString().trim() === cuil.toString().trim() && em[0].toString().trim() === legajo.toString().trim());
@@ -608,6 +611,24 @@ async function cargarDatosEmpleadoEnModal(cuil, legajo) {
     document.getElementById('empl-ingreso').value = emp[3] ? emp[3].split('T')[0] : "";
     document.getElementById('empl-tarea').value = emp[4] || "";
 
+    // 🔴 REPARACIÓN MODALIDAD (MES/HORA)
+    const modalidad = (emp[12] || 'mensual').toString().toLowerCase().trim();
+    const cantidad = emp[13] || "1";
+    
+    const radioMes = document.getElementById('mod-mes');
+    const radioHora = document.getElementById('mod-hora');
+    const inputCantidad = document.getElementById('empl-cantidad-modalidad');
+    
+    if (radioMes && radioHora) {
+        if (modalidad === 'hora') {
+            radioHora.checked = true;
+        } else {
+            radioMes.checked = true;
+        }
+        toggleCamposModalidad(); // Muestra u oculta campos de horas
+    }
+    if (inputCantidad) inputCantidad.value = cantidad;
+
     const selectGremio = document.getElementById('empl-gremio');
     selectGremio.value = emp[10] || "";
     actualizarOpcionesGremioEmpleado();
@@ -618,7 +639,6 @@ async function cargarDatosEmpleadoEnModal(cuil, legajo) {
             if (selectCat && emp[5]) selectCat.value = emp[5];
             
             try {
-                // AQUÍ ESTABA EL BUG: Reparado para que lea bien qué checkbox estaba tildado
                 const guardados = JSON.parse(emp[11] || "[]");
                 document.querySelectorAll('.check-concepto-emp').forEach(chk => {
                     const nombreConcepto = chk.dataset.nombre;
@@ -626,7 +646,6 @@ async function cargarDatosEmpleadoEnModal(cuil, legajo) {
                     
                     if (conceptoGuardado) {
                         chk.checked = true;
-                        // También recupera el porcentaje o monto modificado
                         const idNum = chk.id.split('-')[1];
                         const inputVal = document.getElementById(`val-cep-${idNum}`);
                         if (inputVal) inputVal.value = conceptoGuardado.valor;
@@ -639,6 +658,18 @@ async function cargarDatosEmpleadoEnModal(cuil, legajo) {
             resolve();
         }, 150);
     });
+}
+
+// Asegurate de reemplazar también esta función pequeña (suele estar al final de tu código o en Bloque 4)
+function toggleCamposModalidad() {
+    const contenedor = document.getElementById('campos-extra-modalidad');
+    const radioMes = document.getElementById('mod-mes');
+    
+    // El if previene que se rompa si el HTML todavía no cargó los botones
+    if (contenedor && radioMes) {
+        const esMensual = radioMes.checked;
+        contenedor.classList.toggle('d-none', esMensual);
+    }
 }
 
 async function verFichaEmpleado(cuil, legajo) {
@@ -717,12 +748,6 @@ async function cargarDatosMensualesEmpresa() {
     `;
 }
 
-function guardarCambiosEmpresa() {
-    // Al manejar datos en memoria volátil de forma dinámica para agilizar los recibos,
-    // confirmamos que queden listos en el navegador para el lote de impresión
-    alert("✅ Datos mensuales retenidos en caché para la próxima tanda de recibos.");
-}
-
 function habilitarSeleccionLiquidacion() {
     // Ponemos el signo "?" para que si el elemento no existe, no rompa el programa
     document.getElementById('th-check-header')?.classList.remove('d-none');
@@ -770,7 +795,6 @@ function toggleTodosEmpleados(masterInput) {
         chk.checked = masterInput.checked;
     });
 }
-
 function procesarLoteLiquidacion() {
     const seleccionados = [];
     document.querySelectorAll('.check-empleado:checked').forEach(chk => {
@@ -784,10 +808,9 @@ function procesarLoteLiquidacion() {
 
     mostrarAlertaPersonalizada(
         "Recordatorio de Liquidación",
-        "Antes de generar los recibos, verificá:\n\n✅ ¿Actualizaste el Seguro de Vida?\n✅ ¿El No Remunerativo es correcto?\n✅ ¿Están cargadas las horas?",
+        "Antes de generar los recibos, verificá:\n\n✅ ¿Actualizaste el Seguro de Vida?\n✅ ¿El No Remunerativo es correcto?\n✅ ¿Cargaste las fechas, horas o sueldos?",
         "info",
         () => {
-            // 🔴 CORRECCIÓN AQUÍ: Filtramos por CUIL y obligamos a que coincida con la EMPRESA ACTIVA
             const cuitBuscado = cuitEmpresaActiva.toString().trim();
             
             listaParaImprimir = cacheEmpleados.filter(em => {
@@ -799,14 +822,85 @@ function procesarLoteLiquidacion() {
             const contenedor = document.getElementById('contenedor-conceptos');
             if (!contenedor) return;
 
-            let htmlList = '';
+            let htmlList = `
+                <div class="mb-3 px-2">
+                    <div class="d-flex gap-2 mb-2">
+                        <button class="btn btn-outline-primary btn-sm flex-fill" onclick="filtrarTipo('MES')">SOLO MENSUALES</button>
+                        <button class="btn btn-outline-success btn-sm flex-fill" onclick="filtrarTipo('HORAS')">SOLO POR HORA</button>
+                        <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="filtrarTipo('TODOS')">VER TODOS</button>
+                    </div>
+                    <input type="text" id="filtro-empleados" class="form-control border-primary shadow-sm" 
+                           placeholder="🔍 Buscar por Legajo o CUIL..." 
+                           oninput="filtrarEmpleadosLiquidacion(this.value)">
+                </div>`;
             
             listaParaImprimir.forEach((em, index) => {
                 let claseOculta = index >= 5 ? 'fila-extra-liq d-none' : '';
+                const legajo = em[0] || '';
+                const nombre = em[1] || '';
+                const cuil = em[2] || '';
+                let brutoUnitario = parseFloat(em[5]) || 0;
+
+                // Leemos si es mensual o por hora según su ficha guardada
+                let modoFicha = (em[12] || "mensual").toString().toLowerCase().trim();
+                let modoActual = modoFicha === "hora" ? "HORAS" : "MES";
+                
+                // 🔴 MAGIA DE ETIQUETAS Y VALORES
+                // Si es por HORA, queda en blanco para llenar. Si es MES, carga el sueldo base.
+                let valorDefecto = modoActual === "HORAS" ? "" : brutoUnitario;
+                let labelCantidad = modoActual === "HORAS" ? "CANTIDAD HORAS" : "MENSUALIDAD";
+
+                // Este script hace que si cambiás el menú desplegable a mano, se actualice el texto y el número al instante
+                let onChangeJs = `
+                    this.closest('tr').dataset.modo = this.value; 
+                    const col = this.closest('.row'); 
+                    const lbl = col.querySelector('.lbl-cantidad-liq'); 
+                    const inp = col.querySelector('.input-valor-liq'); 
+                    if(this.value === 'HORAS') { 
+                        lbl.innerText = 'CANTIDAD HORAS'; 
+                        inp.value = ''; 
+                    } else { 
+                        lbl.innerText = 'MENSUALIDAD'; 
+                        inp.value = inp.dataset.bruto; 
+                    }
+                `;
+
                 htmlList += `
-                    <tr class="${claseOculta}">
-                        <td class="fw-bold text-uppercase border-bottom py-2">
-                            <i class="bi bi-person-check text-success me-2"></i> ${em[1]} <span class="text-muted fw-normal ms-2">| Legajo: ${em[0]}</span>
+                    <tr class="${claseOculta} fila-empleado-liq" data-modo="${modoActual}">
+                        <td class="border-bottom py-3">
+                            <div class="fw-bold text-uppercase text-primary mb-2">
+                                <i class="bi bi-person-check text-success me-1"></i> ${nombre} 
+                                <span class="text-muted fw-normal ms-1" style="font-size: 0.8em;">(CUIL: ${cuil} | Leg: ${legajo})</span>
+                            </div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-2">
+                                    <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">MODO</label>
+                                    <select class="form-select form-select-sm select-modo-liq fw-bold border-primary" data-cuil="${cuil}" onchange="${onChangeJs}">
+                                        <option value="MES" ${modoActual === "MES" ? "selected" : ""}>MENSUAL</option>
+                                        <option value="HORAS" ${modoActual === "HORAS" ? "selected" : ""}>POR HORA</option>
+                                    </select>
+                                </div>
+                                <div class="col-2">
+                                    <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">A LIQUIDAR</label>
+                                    <select class="form-select form-select-sm select-quincena-liq fw-bold border-secondary" data-cuil="${cuil}">
+                                        <option value="1">1ra QUINCENA</option>
+                                        <option value="2">2da QUINCENA</option>
+                                        <option value="3">MES COMPLETO</option>
+                                    </select>
+                                </div>
+                                <div class="col-2">
+                                    <label class="small text-muted fw-bold mb-1 lbl-cantidad-liq" style="font-size: 0.7rem;">${labelCantidad}</label>
+                                    <input type="number" step="any" class="form-control form-control-sm input-valor-liq fw-bold border-primary" data-cuil="${cuil}" value="${valorDefecto}" data-bruto="${brutoUnitario}">
+                                </div>
+                                <div class="col-3">
+                                    <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">FECHA DESDE</label>
+                                    <input type="date" class="form-control form-control-sm input-desde-liq" data-cuil="${cuil}">
+                                </div>
+                                <div class="col-3">
+                                    <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">FECHA HASTA</label>
+                                    <input type="date" class="form-control form-control-sm input-hasta-liq" data-cuil="${cuil}">
+                                </div>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -826,15 +920,29 @@ function procesarLoteLiquidacion() {
 
             contenedor.innerHTML = htmlList;
 
-            const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
-            document.getElementById('cabecera-recibo').innerHTML = `
-                <h6 class="fw-bold text-dark mb-0 text-uppercase">${empActiva ? empActiva[0] : 'Empresa'}</h6>
-                <small class="text-muted">Procesando un lote de ${listaParaImprimir.length} recibo(s).</small>
-            `;
+            const modalEl = document.getElementById('modalLiquidacion');
+            const modalDialog = modalEl.querySelector('.modal-dialog');
+            if (modalDialog) modalDialog.classList.add('modal-lg');
 
-            new bootstrap.Modal(document.getElementById('modalLiquidacion')).show();
+            new bootstrap.Modal(modalEl).show();
         }
     );
+}
+
+// Funciones de apoyo para los filtros
+function filtrarTipo(tipo) {
+    const filas = document.querySelectorAll('.fila-empleado-liq');
+    filas.forEach(fila => {
+        fila.style.display = (tipo === 'TODOS' || fila.dataset.modo === tipo) ? "" : "none";
+    });
+}
+
+function filtrarEmpleadosLiquidacion(texto) {
+    texto = texto.toLowerCase();
+    const filas = document.querySelectorAll('.fila-empleado-liq');
+    filas.forEach(fila => {
+        fila.style.display = fila.innerText.toLowerCase().includes(texto) ? "" : "none";
+    });
 }
 
 // NUEVA FUNCIÓN: Convierte números a letras automáticamente para los recibos
@@ -893,14 +1001,12 @@ function numeroALetras(num) {
     return `RECIBÍ CONFORME LA SUMA DE: ${millones(enteros).trim()} PESOS CON ${centavos}/100.`;
 }
 
-
 function imprimirRecibo() {
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
     const nombreEmpresa = empActiva ? empActiva[0] : 'Empresa';
     const direccionEmpresa = empActiva ? empActiva[1] : '';
     const cuitEmpresa = empActiva ? empActiva[2] : '';
 
-    // Datos extra del panel mensual (Periodo, Banco, etc.)
     const periodoLiq = document.getElementById('liq-periodo') ? document.getElementById('liq-periodo').value : "";
     let textoPeriodo = periodoLiq;
     if(periodoLiq) {
@@ -919,24 +1025,32 @@ function imprimirRecibo() {
         <style>
             @media print { 
                 .no-print { display: none; } 
+                @page { size: A4; margin: 10mm; } 
                 body { margin: 0; padding: 0; background: #fff; }
-                .hoja-recibo { page-break-after: always; display: flex; flex-direction: column; height: 98vh; padding: 10mm; box-sizing: border-box; }
-                .mitad-recibo { flex: 1; padding: 5mm 0; box-sizing: border-box; }
+                .hoja-recibo { 
+                    page-break-after: always; 
+                    page-break-inside: avoid;
+                    display: flex; 
+                    flex-direction: column; 
+                    min-height: 277mm; 
+                    padding: 5mm; 
+                    box-sizing: border-box; 
+                }
+                .mitad-recibo { width: 100%; padding: 0; box-sizing: border-box; }
             } 
             @media screen {
                 body { background: #525659; font-family: sans-serif; }
                 .hoja-recibo { background: white; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 15mm; box-shadow: 0 0 10px rgba(0,0,0,0.5); display: flex; flex-direction: column; box-sizing: border-box; }
-                .mitad-recibo { flex: 1; padding: 5mm 0; box-sizing: border-box; }
+                .mitad-recibo { width: 100%; box-sizing: border-box; }
                 .btn-imprimir { position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 15px 30px; font-size: 18px; font-weight: bold; background: #ffc107; border: 2px solid #000; cursor: pointer; box-shadow: 4px 4px 0 #000; transition: 0.2s; }
                 .btn-imprimir:hover { background: #e0a800; }
             }
-            .tabla-clasica { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 10px; margin-bottom: 5px; }
-            .tabla-clasica th, .tabla-clasica td { border: 1px solid #000; padding: 3px 5px; }
+            .tabla-clasica { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; margin-bottom: 5px; }
+            .tabla-clasica th, .tabla-clasica td { border: 1px solid #000; padding: 4px 6px; }
             .tabla-clasica th { text-align: center; font-weight: bold; background-color: #fff; }
-            .tabla-conceptos { margin-bottom: 0; border-bottom: none; }
+            .tabla-conceptos { margin-bottom: 0; }
+            .tabla-conceptos th { border-bottom: 2px solid #000; }
             .tabla-conceptos td { border-top: none; border-bottom: none; }
-            .tabla-totales { margin-top: 0; border-top: none; }
-            .tabla-totales td { padding: 4px 5px; }
         </style>
     </head><body>
         <div class="no-print"><button class="btn-imprimir" onclick="window.print()">🖨️ IMPRIMIR RECIBOS</button></div>`;
@@ -950,35 +1064,61 @@ function imprimirRecibo() {
         const cuil = em[2] || '';
         let fechaIngreso = em[3] ? em[3].split('T')[0].split('-').reverse().join('/') : '';
         const tarea = em[4] || '';
-        const brutoUnitario = parseFloat(em[5]) || 0; 
-        const horasTrabajadas = parseFloat(em[13]) || 0; 
+        let brutoUnitario = parseFloat(em[5]) || 0; 
+        let horasTrabajadas = parseFloat(em[13]) || 0; 
         
         let labelPrincipal = "Sueldo Básico"; 
-        const gremioNombre = em[10];
-        const gremioObj = cacheGremios.find(g => g[0] === gremioNombre);
+        
+        const selectModo = document.querySelector(`.select-modo-liq[data-cuil="${cuil}"]`);
+        const inputValor = document.querySelector(`.input-valor-liq[data-cuil="${cuil}"]`);
+        const inputDesde = document.querySelector(`.input-desde-liq[data-cuil="${cuil}"]`);
+        const inputHasta = document.querySelector(`.input-hasta-liq[data-cuil="${cuil}"]`);
 
-        if (gremioObj && gremioObj[2]) {
-            try {
-                const categorias = JSON.parse(decodeURIComponent(gremioObj[2]) || "[]");
-                const catEmpleado = categorias.find(c => parseFloat(c.valor) === brutoUnitario);
-                if (catEmpleado) {
-                    const tipoCat = (catEmpleado.tipo || "").toUpperCase();
-                    if (tipoCat.includes("HORA")) labelPrincipal = "Horas Normales";
-                } else if (horasTrabajadas > 0) {
-                    labelPrincipal = "Horas Normales";
-                }
-            } catch(err) {
-                if (horasTrabajadas > 0) labelPrincipal = "Horas Normales";
+        if (selectModo && inputValor) {
+            let modoSeleccionado = selectModo.value; 
+            let valorEditado = parseFloat(inputValor.value) || 0;
+            
+            if (modoSeleccionado === "HORAS") {
+                labelPrincipal = "Horas Normales";
+                horasTrabajadas = valorEditado;
+            } else {
+                labelPrincipal = "Sueldo Básico";
+                brutoUnitario = valorEditado; 
             }
-        } else if (horasTrabajadas > 0) {
-            labelPrincipal = "Horas Normales";
+        }
+
+        let periodoRecibo = textoPeriodo;
+        if (inputDesde && inputHasta && inputDesde.value && inputHasta.value) {
+            let fDesde = inputDesde.value.split('-').reverse().join('/');
+            let fHasta = inputHasta.value.split('-').reverse().join('/');
+            periodoRecibo = `DESDE ${fDesde} HASTA ${fHasta}`;
+        } else if (inputDesde && inputDesde.value) {
+            periodoRecibo = `DESDE ${inputDesde.value.split('-').reverse().join('/')}`;
         }
 
         let sueldoBaseCalculado = labelPrincipal === "Horas Normales" ? (brutoUnitario * horasTrabajadas) : brutoUnitario;
         
+        let aniosAntiguedad = 0;
+        if (em[3]) {
+            let fechaIngresoDate = new Date(em[3].split('T')[0] + 'T00:00:00');
+            let fechaLiquidacionDate = new Date(); 
+            const periodoLiqVal = document.getElementById('liq-periodo') ? document.getElementById('liq-periodo').value : "";
+            if (periodoLiqVal) {
+                fechaLiquidacionDate = new Date(periodoLiqVal + '-01T00:00:00');
+            }
+            
+            aniosAntiguedad = fechaLiquidacionDate.getFullYear() - fechaIngresoDate.getFullYear();
+            if (fechaLiquidacionDate.getMonth() < fechaIngresoDate.getMonth() || 
+               (fechaLiquidacionDate.getMonth() === fechaIngresoDate.getMonth() && fechaLiquidacionDate.getDate() < fechaIngresoDate.getDate())) {
+                aniosAntiguedad--;
+            }
+            if (aniosAntiguedad < 0) aniosAntiguedad = 0;
+        }
+
         let configGremio = {
             "ADICIONAL": 4, 
             "PRESENTISMO": 20, 
+            "ANTIGÜEDAD": 1,
             "NO REMUNERATIVO": 20000, 
             "JUBILACIÓN": 3,
             "LEY 19032": 3,
@@ -987,62 +1127,73 @@ function imprimirRecibo() {
             "SEGURO DE VIDA": 0
         };
 
-        // 1. CARGAMOS LA BASE DEL GREMIO
-        if (gremioObj && gremioObj[3]) {
-            try {
-                const conceptosGlobales = JSON.parse(decodeURIComponent(gremioObj[3]));
-                conceptosGlobales.forEach(cg => {
-                    let nom = cg.nombre.toUpperCase();
-                    let valor = parseFloat(cg.valor);
-                    if(!isNaN(valor)) {
-                        if(nom.includes("ADICIONAL")) configGremio["ADICIONAL"] = valor;
-                        if(nom.includes("PRESENTISMO")) configGremio["PRESENTISMO"] = valor;
-                        if(nom.includes("NO REMUNERATIVO")) configGremio["NO REMUNERATIVO"] = valor;
-                        if(nom.includes("JUBILACIÓN") || nom.includes("JUBILACION")) configGremio["JUBILACIÓN"] = valor;
-                        if(nom.includes("LEY 19032")) configGremio["LEY 19032"] = valor;
-                        if(nom.includes("OBRA SOCIAL")) configGremio["OBRA SOCIAL"] = valor;
-                        if(nom.includes("SINDICAL") || nom.includes("SINDICATO")) configGremio["CUOTA SINDICAL"] = valor;
-                        if(nom.includes("SEGURO DE VIDA")) configGremio["SEGURO DE VIDA"] = valor;
-                    }
-                });
-            } catch(err) {}
-        }
+        const gremioNombre = em[10];
+        const gremioObj = cacheGremios.find(g => g[0] === gremioNombre);
 
-        let tieneAdicional = false, tienePresentismo = false, tieneNoRem = false;
+        let customConceptos = [];
+        let tieneAdicional = false, tienePresentismo = false, tieneNoRem = false, tieneAntiguedad = false;
         let tieneJubilacion = false, tieneLey = false, tieneObraSocial = false;
         let tieneCuota = false, tieneSeguro = false;
 
-        // 2. CORRECCIÓN ABSOLUTA: El número que guardaste en la ficha del empleado MANDA sobre todo.
         conceptos.forEach(c => {
-            let nom = c.nombre.toUpperCase();
+            let nom = c.nombre.toUpperCase().trim();
             let valorEditado = parseFloat(c.valor);
             
-            // isNaN garantiza que hasta un 0 se respete si lo guardaste manual.
             if(!isNaN(valorEditado)) {
-                if(nom.includes("ADICIONAL")) { configGremio["ADICIONAL"] = valorEditado; tieneAdicional = true; }
-                if(nom.includes("PRESENTISMO")) { configGremio["PRESENTISMO"] = valorEditado; tienePresentismo = true; }
-                if(nom.includes("NO REMUNERATIVO")) { configGremio["NO REMUNERATIVO"] = valorEditado; tieneNoRem = true; }
-                if(nom.includes("JUBILACIÓN") || nom.includes("JUBILACION")) { configGremio["JUBILACIÓN"] = valorEditado; tieneJubilacion = true; }
-                if(nom.includes("LEY 19032")) { configGremio["LEY 19032"] = valorEditado; tieneLey = true; }
-                if(nom.includes("OBRA SOCIAL")) { configGremio["OBRA SOCIAL"] = valorEditado; tieneObraSocial = true; }
-                if(nom.includes("SINDICAL") || nom.includes("SINDICATO")) { configGremio["CUOTA SINDICAL"] = valorEditado; tieneCuota = true; }
-                if(nom.includes("SEGURO DE VIDA")) { configGremio["SEGURO DE VIDA"] = valorEditado; tieneSeguro = true; }
+                if(nom === "ADICIONAL" || nom === "ADICIONAL 1") { configGremio["ADICIONAL"] = valorEditado; tieneAdicional = true; }
+                else if(nom === "PRESENTISMO") { configGremio["PRESENTISMO"] = valorEditado; tienePresentismo = true; }
+                else if(nom === "ANTIGÜEDAD" || nom === "ANTIGUEDAD") { configGremio["ANTIGÜEDAD"] = valorEditado; tieneAntiguedad = true; }
+                else if(nom === "NO REMUNERATIVO") { configGremio["NO REMUNERATIVO"] = valorEditado; tieneNoRem = true; }
+                else if(nom === "JUBILACIÓN" || nom === "JUBILACION") { configGremio["JUBILACIÓN"] = valorEditado; tieneJubilacion = true; }
+                else if(nom === "LEY 19032") { configGremio["LEY 19032"] = valorEditado; tieneLey = true; }
+                else if(nom === "OBRA SOCIAL") { configGremio["OBRA SOCIAL"] = valorEditado; tieneObraSocial = true; }
+                else if(nom === "CUOTA SINDICAL") { configGremio["CUOTA SINDICAL"] = valorEditado; tieneCuota = true; }
+                else if(nom === "SEGURO DE VIDA") { configGremio["SEGURO DE VIDA"] = valorEditado; tieneSeguro = true; }
+                else if (valorEditado > 0) {
+                    customConceptos.push({ nombre: c.nombre, tipo: (c.tipo || "REM").toUpperCase(), modo: (c.modo || "monto").toLowerCase(), valor: valorEditado });
+                }
             }
         });
 
-        // 3. FÓRMULAS
-        let valAdicional = sueldoBaseCalculado * (configGremio["ADICIONAL"] / 100);
-        let valPresentismo = (sueldoBaseCalculado + valAdicional) * (configGremio["PRESENTISMO"] / 100);
-        let valNoRem = parseFloat(configGremio["NO REMUNERATIVO"]) || 0;
-        
-        let baseRemunerativa = sueldoBaseCalculado + valAdicional + valPresentismo;
-        let baseObraSocial = baseRemunerativa + valNoRem; 
+        let customRemunerativos = [];
+        let customNoRemunerativos = [];
+        let customDescuentos = [];
 
-        let valJubilacion = baseRemunerativa * (configGremio["JUBILACIÓN"] / 100);
-        let valLey = baseRemunerativa * (configGremio["LEY 19032"] / 100);
-        let valCuota = baseRemunerativa * (configGremio["CUOTA SINDICAL"] / 100);
-        let valObraSocial = baseObraSocial * (configGremio["OBRA SOCIAL"] / 100);
-        let valSeguro = parseFloat(configGremio["SEGURO DE VIDA"]) || 0; 
+        customConceptos.forEach(c => {
+            let isPorcentaje = (c.modo === 'porcentaje' || c.modo === '%');
+            let calcVal = 0;
+            let porcStr = isPorcentaje ? c.valor : "";
+            
+            if (c.tipo.includes("NO_REM") || c.tipo.includes("NO REM")) {
+                calcVal = isPorcentaje ? (sueldoBaseCalculado * (c.valor / 100)) : c.valor;
+                customNoRemunerativos.push({ nombre: c.nombre, porc: porcStr, valor: calcVal });
+            } else if (c.tipo.includes("DESC") || c.tipo.includes("RETENCION")) {
+                customDescuentos.push({ nombre: c.nombre, porc: porcStr, valor: c.valor, isPorcentaje: isPorcentaje });
+            } else { 
+                calcVal = isPorcentaje ? (sueldoBaseCalculado * (c.valor / 100)) : c.valor;
+                customRemunerativos.push({ nombre: c.nombre, porc: porcStr, valor: calcVal });
+            }
+        });
+
+        let valAntiguedad = tieneAntiguedad ? (sueldoBaseCalculado * (configGremio["ANTIGÜEDAD"] / 100) * aniosAntiguedad) : 0;
+        let valAdicional = tieneAdicional ? (sueldoBaseCalculado * (configGremio["ADICIONAL"] / 100)) : 0;
+        let valPresentismo = tienePresentismo ? ((sueldoBaseCalculado + valAdicional + valAntiguedad) * (configGremio["PRESENTISMO"] / 100)) : 0;
+        let valCustomRem = customRemunerativos.reduce((sum, item) => sum + item.valor, 0);
+        
+        let baseRemunerativa = sueldoBaseCalculado + valAdicional + valPresentismo + valAntiguedad + valCustomRem;
+        
+        let valNoRem = tieneNoRem ? (parseFloat(configGremio["NO REMUNERATIVO"]) || 0) : 0;
+        let valCustomNoRem = customNoRemunerativos.reduce((sum, item) => sum + item.valor, 0);
+        
+        let baseObraSocial = baseRemunerativa + valNoRem + valCustomNoRem; 
+
+        let valJubilacion = tieneJubilacion ? (baseRemunerativa * (configGremio["JUBILACIÓN"] / 100)) : 0;
+        let valLey = tieneLey ? (baseRemunerativa * (configGremio["LEY 19032"] / 100)) : 0;
+        let valCuota = tieneCuota ? (baseRemunerativa * (configGremio["CUOTA SINDICAL"] / 100)) : 0;
+        let valObraSocial = tieneObraSocial ? (baseObraSocial * (configGremio["OBRA SOCIAL"] / 100)) : 0;
+        let valSeguro = tieneSeguro ? (parseFloat(configGremio["SEGURO DE VIDA"]) || 0) : 0; 
+        
+        customDescuentos.forEach(cd => { cd.calcVal = cd.isPorcentaje ? (baseRemunerativa * (cd.valor / 100)) : cd.valor; });
 
         let htmlFilas = "";
         let tRem = 0, tNoRem = 0, tDesc = 0;
@@ -1060,42 +1211,54 @@ function imprimirRecibo() {
             </tr>`;
         }
 
-        agregarFila(labelPrincipal, "30", "-", sueldoBaseCalculado, 0, 0);
-        if(tieneAdicional) agregarFila("Adicional", "", configGremio["ADICIONAL"], valAdicional, 0, 0);
-        if(tienePresentismo) agregarFila("Presentismo", "", configGremio["PRESENTISMO"], valPresentismo, 0, 0);
-        if(tieneNoRem) agregarFila("No Remunerativo", "", "", 0, 0, valNoRem);
-        if(tieneJubilacion) agregarFila("Jubilación", "", configGremio["JUBILACIÓN"], 0, valJubilacion, 0);
-        if(tieneLey) agregarFila("Ley 19032", "", configGremio["LEY 19032"], 0, valLey, 0);
-        if(tieneObraSocial) agregarFila("Obra Social", "", configGremio["OBRA SOCIAL"], 0, valObraSocial, 0);
-        if(tieneCuota) agregarFila("Cuota Sindical", "", configGremio["CUOTA SINDICAL"], 0, valCuota, 0);
+        let baseSueldoImpreso = labelPrincipal === "Horas Normales" ? horasTrabajadas : "30";
+        agregarFila(labelPrincipal, baseSueldoImpreso, "-", sueldoBaseCalculado, 0, 0);
+        
+        if(tieneAntiguedad && aniosAntiguedad > 0) {
+            let porcentajeImpreso = (configGremio["ANTIGÜEDAD"] * aniosAntiguedad);
+            agregarFila("Antigüedad (" + aniosAntiguedad + " años)", "", porcentajeImpreso.toFixed(1), valAntiguedad, 0, 0);
+        }
+        if(tieneAdicional && valAdicional > 0) agregarFila("Adicional", "", configGremio["ADICIONAL"], valAdicional, 0, 0);
+        if(tienePresentismo && valPresentismo > 0) agregarFila("Presentismo", "", configGremio["PRESENTISMO"], valPresentismo, 0, 0);
+        
+        customRemunerativos.forEach(cr => agregarFila(cr.nombre, "", cr.porc, cr.valor, 0, 0));
+
+        if(tieneNoRem && valNoRem > 0) agregarFila("No Remunerativo", "", "", 0, 0, valNoRem);
+        customNoRemunerativos.forEach(cnr => agregarFila(cnr.nombre, "", cnr.porc, 0, 0, cnr.valor));
+
+        if(tieneJubilacion && valJubilacion > 0) agregarFila("Jubilación", "", configGremio["JUBILACIÓN"], 0, valJubilacion, 0);
+        if(tieneLey && valLey > 0) agregarFila("Ley 19032", "", configGremio["LEY 19032"], 0, valLey, 0);
+        if(tieneObraSocial && valObraSocial > 0) agregarFila("Obra Social", "", configGremio["OBRA SOCIAL"], 0, valObraSocial, 0);
+        if(tieneCuota && valCuota > 0) agregarFila("Cuota Sindical", "", configGremio["CUOTA SINDICAL"], 0, valCuota, 0);
         if(tieneSeguro && valSeguro > 0) agregarFila("Seguro de Vida", "", "", 0, valSeguro, 0);
+
+        customDescuentos.forEach(cd => agregarFila(cd.nombre, "", cd.porc, 0, cd.calcVal, 0));
 
         let netoPreliminar = (tRem + tNoRem) - tDesc;
         let netoRedondeado = Math.ceil(netoPreliminar);
         let valorRedondeo = parseFloat((netoRedondeado - netoPreliminar).toFixed(2));
 
-        if (valorRedondeo > 0) {
-            agregarFila("Redondeo", "", "", 0, 0, valorRedondeo);
-        }
+        if (valorRedondeo > 0) { agregarFila("Redondeo", "", "", 0, 0, valorRedondeo); }
 
         let neto = (tRem + tNoRem) - tDesc; 
-        let textoNeto = typeof numeroALetras === 'function' ? numeroALetras(neto) : '';
+        
+        let textoNetoRaw = typeof numeroALetras === 'function' ? numeroALetras(neto) : '';
+        let textoNetoLimpio = textoNetoRaw.replace('RECIBÍ CONFORME LA SUMA DE:', '').trim();
 
-        // DISEÑO CALCADO DE LA IMAGEN
         function generarMitadRecibo(tipoCopia) {
             return `
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
                 <div>
                     <h4 style="margin: 0; font-weight: bold; text-transform: uppercase;">${nombreEmpresa}</h4>
-                    <div style="font-size: 10px; margin-top: 2px;">CUIT: ${cuitEmpresa}</div>
+                    <div style="font-size: 11px; margin-top: 2px;">CUIT: ${cuitEmpresa}</div>
                 </div>
                 <div style="text-align: right;">
-                    <div style="font-weight: bold; font-size: 11px;">${tipoCopia}</div>
-                    <div style="font-weight: bold; font-size: 11px;">Legajo Nº: ${legajo}</div>
+                    <div style="font-weight: bold; font-size: 12px;">${tipoCopia}</div>
+                    <div style="font-weight: bold; font-size: 12px;">Legajo Nº: ${legajo}</div>
                 </div>
             </div>
 
-            <table class="tabla-clasica">
+            <table class="tabla-clasica" style="margin-bottom: 0;">
                 <tr>
                     <th style="width: 25%">Nombre y Apellido</th>
                     <th style="width: 15%">Fecha Ingreso</th>
@@ -1128,15 +1291,15 @@ function imprimirRecibo() {
                     <th>Tarea Desempeñada</th>
                 </tr>
                 <tr>
-                    <td colspan="2" style="text-align: center;">${textoPeriodo.toUpperCase()}</td>
+                    <td colspan="2" style="text-align: center;">${periodoRecibo.toUpperCase()}</td>
                     <td colspan="2" style="text-align: center;">${direccionEmpresa}</td>
                     <td style="text-align: center;">${tarea}</td>
                 </tr>
             </table>
 
-            <table class="tabla-clasica tabla-conceptos">
+            <table class="tabla-clasica tabla-conceptos" style="table-layout: fixed; margin-bottom: 0;">
                 <thead>
-                    <tr style="border-bottom: 1px solid #000;">
+                    <tr>
                         <th style="width: 35%">Descripción de Conceptos</th>
                         <th style="width: 8%">Base</th>
                         <th style="width: 7%">%</th>
@@ -1147,48 +1310,52 @@ function imprimirRecibo() {
                 </thead>
                 <tbody>
                     ${htmlFilas}
-                    <tr><td colspan="6" style="height: 40px;"></td></tr>
+                    <tr style="height: 120px;">
+                        <td></td><td></td><td></td><td></td><td></td><td></td>
+                    </tr>
                 </tbody>
+                <tfoot>
+                    <tr style="border-top: 2px solid #000; border-bottom: 2px solid #000; background: #f8f9fa;">
+                        <td colspan="3" style="text-align: right; font-weight: bold; border-right: 1px solid #000;">Subtotales:</td>
+                        <td style="text-align: right; font-weight: bold; border-right: 1px solid #000;">$ ${tRem.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold; border-right: 1px solid #000;">$ ${tDesc.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold;">$ ${tNoRem.toFixed(2)}</td>
+                    </tr>
+                    <!-- 🟢 ORDEN CORREGIDO: BRUTO -> NO REMUNERATIVO -> DESCUENTOS -> NETO -->
+                    <tr>
+                        <td colspan="3" rowspan="4" style="border: none; padding: 15px 10px; vertical-align: top;">
+                            <p style="margin: 0; font-size: 11px;">Recibí conforme la suma de:<br>
+                            <strong>SON: ${textoNetoLimpio}</strong></p>
+                        </td>
+                        <td colspan="2" style="text-align: center; font-weight: bold; border-left: 1px solid #000; border-bottom: 1px solid #000;">TOTAL BRUTO</td>
+                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${tRem.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: center; font-weight: bold; border-left: 1px solid #000; border-bottom: 1px solid #000;">TOTAL NO REMUNERATIVO</td>
+                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${tNoRem.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: center; font-weight: bold; border-left: 1px solid #000; border-bottom: 1px solid #000;">TOTAL DESCUENTOS</td>
+                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${tDesc.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: center; font-weight: bold; font-size: 13px; border-left: 1px solid #000; background: #e9ecef;">TOTAL NETO</td>
+                        <td style="text-align: right; font-weight: bold; font-size: 13px; background: #e9ecef;">$ ${neto.toFixed(2)}</td>
+                    </tr>
+                </tfoot>
             </table>
 
-            <table class="tabla-clasica tabla-totales">
-                <tr>
-                    <td colspan="3" rowspan="3" style="width: 50%; border-top: 1px solid #000; vertical-align: top; border-right: 1px solid #000;"></td>
-                    <td colspan="2" style="text-align: center; font-weight: bold; border-top: 1px solid #000;">Total Bruto</td>
-                    <td style="text-align: right; font-weight: bold; border-top: 1px solid #000;">$ ${tRem.toFixed(2)}</td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="text-align: center; font-weight: bold;">TOTAL Remunerativo</td>
-                    <td style="text-align: right; font-weight: bold;">$ ${tRem.toFixed(2)}</td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="text-align: center; font-weight: bold;">TOTAL No Remunerativo</td>
-                    <td style="text-align: right; font-weight: bold;">$ ${tNoRem.toFixed(2)}</td>
-                </tr>
-                <tr>
-                    <td colspan="3" style="text-align: center; font-weight: bold;">Subtotal:</td>
-                    <td style="text-align: right; font-weight: bold; width: 16.6%;">$ ${tRem.toFixed(2)}</td>
-                    <td style="text-align: right; font-weight: bold; width: 16.6%;">$ ${tDesc.toFixed(2)}</td>
-                    <td style="text-align: right; font-weight: bold; width: 16.6%;">$ ${tNoRem.toFixed(2)}</td>
-                </tr>
-                <tr>
-                    <td colspan="3" style="border: none;"></td>
-                    <td colspan="2" style="text-align: right; font-weight: bold; font-size: 11px;">TOTAL NETO</td>
-                    <td style="text-align: right; font-weight: bold; font-size: 11px;">$ ${neto.toFixed(2)}</td>
-                </tr>
-            </table>
-
-            <div style="font-size: 10px; margin-top: 5px;">
-                <p style="margin: 0;">Recibí conforme la suma de:<br><strong style="font-size: 11px;">SON: ${textoNeto}</strong></p>
-                <div style="display: flex; justify-content: space-between; margin-top: 25px;">
-                    <p style="margin: 0; color: #555; font-size: 8px; width: 60%;">
+            <div style="font-size: 10px; margin-top: 25px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <p style="margin: 0; color: #555; font-size: 9px; width: 60%;">
                         En concepto de mis haberes correspondientes al período arriba indicado y según la presente liquidación, dejando constancia de haber recibido un duplicado de este recibo.
                     </p>
                     <div style="text-align: center; width: 30%; border-top: 1px solid #000; padding-top: 5px;">
                         Firma del Empleado
                     </div>
                 </div>
-            </div>`;
+            </div>
+            `;
         }
 
         htmlVentana += `
@@ -1196,7 +1363,9 @@ function imprimirRecibo() {
             <div class="mitad-recibo">
                 ${generarMitadRecibo('ORIGINAL PARA EL EMPLEADOR')}
             </div>
-            <div style="border-top: 1px dashed #666; margin: 10px 0;"></div>
+        </div>
+        
+        <div class="hoja-recibo">
             <div class="mitad-recibo">
                 ${generarMitadRecibo('DUPLICADO PARA EL EMPLEADO')}
             </div>
@@ -1227,9 +1396,7 @@ function mostrarTodoLoteLiq() {
 /* ============================================================
    🏷️ GESTIÓN INTEGRAL DE GREMIOS (BLOQUE 4 DE 4)
    ============================================================ */
-// En tu script.js, Bloque 4
-// Asegúrate de que este objeto esté disponible en la lista 
-// que usas para renderizar los checkboxes del Gremio
+
 const CONCEPTOS_DISPONIBLES = [
     // ... tus otros conceptos ...
     {
@@ -1386,13 +1553,13 @@ function renderizarTablaGremios() {
         const consEscaped = encodeURIComponent(g[3] || "[]");
         
         return `
-        <tr>
+        <tr onclick="prepararEdicionGremio('${g[0]}', '${g[1]}', '${catsEscaped}', '${consEscaped}')" style="cursor: pointer;" title="Haga clic para editar">
             <td class="fw-bold text-uppercase ps-3">
                 <i class="bi bi-folder2-open text-warning me-2"></i> ${g[0]}
             </td>
             <td class="text-muted fw-bold">${g[1] || '---'}</td>
             <td><span class="badge bg-success-subtle text-success border border-success">Configurado</span></td>
-            <td class="text-end pe-3">
+            <td class="text-end pe-3" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-outline-warning me-1" onclick="prepararEdicionGremio('${g[0]}', '${g[1]}', '${catsEscaped}', '${consEscaped}')" title="Editar Gremio">
                     <i class="bi bi-pencil"></i>
                 </button>
@@ -1444,6 +1611,7 @@ function abrirModalGremio() {
         { nombre: "LEY 19032", tipo: "DESC", modo: "porcentaje", valor: 3, esCombinado: false },
         { nombre: "OBRA SOCIAL", tipo: "DESC", modo: "porcentaje", valor: 3, esCombinado: false },
         { nombre: "CUOTA SINDICAL", tipo: "DESC", modo: "porcentaje", valor: 2.5, esCombinado: false },
+        { nombre: "ANTIGÜEDAD", tipo: "REM", modo: "porcentaje", valor: 1, esCombinado: false },
         { nombre: "SEGURO DE VIDA", tipo: "DESC", modo: "monto", valor: 0, esCombinado: false }
     ];
 
@@ -1544,6 +1712,7 @@ function prepararEdicionGremio(nombre, actividad, catsJson, consJson) {
         { nombre: "JUBILACIÓN", tipo: "DESC", modo: "porcentaje", valor: 3, esCombinado: false },
         { nombre: "LEY 19032", tipo: "DESC", modo: "porcentaje", valor: 3, esCombinado: false },
         { nombre: "OBRA SOCIAL", tipo: "DESC", modo: "porcentaje", valor: 3, esCombinado: false },
+        { nombre: "ANTIGÜEDAD", tipo: "REM", modo: "porcentaje", valor: 1, esCombinado: false },
         { nombre: "CUOTA SINDICAL", tipo: "DESC", modo: "porcentaje", valor: 2.5, esCombinado: false },
         { nombre: "SEGURO DE VIDA", tipo: "DESC", modo: "monto", valor: 0, esCombinado: false }
     ];
@@ -1585,11 +1754,7 @@ async function ejecutarEliminacionGremio(nombre) {
     }
 }
 
-function toggleCamposModalidad() {
-    const contenedor = document.getElementById('campos-extra-modalidad');
-    const esMensual = document.getElementById('mod-mes').checked;
-    contenedor.classList.toggle('d-none', esMensual);
-}
+
 // Pon esto al final de tu script.js
 document.addEventListener('click', function(e) {
     // Si el usuario hace clic en un input de tipo date
