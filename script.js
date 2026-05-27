@@ -14,17 +14,24 @@ let categoriasTemporales = [];
 let conceptosTemporales = [];
 
 // --- LOGIN Y SEGURIDAD ---
-function iniciarSesion(e) {
-    e.preventDefault();
-    const u = document.getElementById('user-login').value;
-    const p = document.getElementById('pass-login').value;
-    if (u === "omar" && p === "1234") {
+async function validarAcceso(user, pass) {
+    const respuesta = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user, pass })
+    });
+    
+    const data = await respuesta.json();
+    
+    if (data.success) {
+        // 🔴 Ahora sí guardamos la sesión y entramos
         sessionStorage.setItem("sueldos_auth", "true");
         mostrarSistema();
     } else {
         document.getElementById('error-login').classList.remove('d-none');
     }
 }
+
 
 async function mostrarSistema() {
     document.getElementById('pantalla-login').classList.add('d-none');
@@ -60,14 +67,24 @@ function mostrarSeccion(id) {
 document.addEventListener("DOMContentLoaded", () => {
     if (sessionStorage.getItem("sueldos_auth") === "true") mostrarSistema();
     
-    // Vinculación de formularios nativos
+    // 🔴 NUEVA VINCULACIÓN: Capturamos el submit del formulario de login
+    const formLogin = document.getElementById('form-login'); // Asegurate de que tu form en HTML tenga este ID
+    if (formLogin) {
+        formLogin.onsubmit = async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('user-login').value;
+            const p = document.getElementById('pass-login').value;
+            await validarAcceso(u, p);
+        };
+    }
+    
+    // Vinculación de formularios nativos (esto lo mantenés igual)
     const formEmpresa = document.getElementById('form-empresa');
     if (formEmpresa) formEmpresa.onsubmit = guardarEmpresa;
     
     const formEmpleado = document.getElementById('form-empleado');
     if (formEmpleado) formEmpleado.onsubmit = guardarEmpleado;
 
-    // 🔴 NUEVO: Vinculación estricta para el Gremio (evita que la página se recargue)
     const formGremio = document.getElementById('form-gremio');
     if (formGremio) formGremio.onsubmit = guardarGremio;
 });
