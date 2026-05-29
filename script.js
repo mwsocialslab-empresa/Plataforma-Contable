@@ -1018,6 +1018,14 @@ function numeroALetras(num) {
     return `RECIBÍ CONFORME LA SUMA DE: ${millones(enteros).trim()} PESOS CON ${centavos}/100.`;
 }
 
+// NUEVA FUNCIÓN: Formatea los números a moneda argentina (Ej: 155.987,10)
+function formatoMoneda(valor) {
+    return parseFloat(valor || 0).toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
 function imprimirRecibo() {
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
     const nombreEmpresa = empActiva ? empActiva[0] : 'Empresa';
@@ -1218,13 +1226,14 @@ function imprimirRecibo() {
         function agregarFila(nombre, base, porcentaje, rem, desc, noRem) {
             if (rem === 0 && noRem === 0 && desc === 0) return;
             tRem += rem; tNoRem += noRem; tDesc += desc;
-            htmlFilas += `<tr>
+            // 🔴 APLICANDO EL FORMATO A LAS FILAS
+            htmlFilas +=`<tr>
                 <td style="text-align: left;">${nombre}</td>
                 <td style="text-align: center;">${base}</td>
                 <td style="text-align: center;">${porcentaje}</td>
-                <td style="text-align: right;">${rem > 0 ? '$ ' + rem.toFixed(2) : ''}</td>
-                <td style="text-align: right;">${desc > 0 ? '$ ' + desc.toFixed(2) : ''}</td>
-                <td style="text-align: right;">${noRem > 0 ? '$ ' + noRem.toFixed(2) : ''}</td>
+                <td style="text-align: right;">${rem > 0 ? '$ ' + formatoMoneda(rem) : ''}</td>
+                <td style="text-align: right;">${desc > 0 ? '$ ' + formatoMoneda(desc) : ''}</td>
+                <td style="text-align: right;">${noRem > 0 ? '$ ' + formatoMoneda(noRem) : ''}</td>
             </tr>`;
         }
 
@@ -1288,7 +1297,7 @@ function imprimirRecibo() {
                     <td style="text-align: center;">${fechaIngreso}</td>
                     <td style="text-align: center;">${cuil}</td>
                     <td style="text-align: center;"></td>
-                    <td style="text-align: center;">$ ${brutoUnitario.toFixed(2)}</td>
+                    <td style="text-align: center;">$ ${formatoMoneda(brutoUnitario)}</td>
                 </tr>
                 <tr>
                     <th>Fecha Depósito</th>
@@ -1334,30 +1343,29 @@ function imprimirRecibo() {
                 <tfoot>
                     <tr style="border-top: 2px solid #000; border-bottom: 2px solid #000; background: #f8f9fa;">
                         <td colspan="3" style="text-align: right; font-weight: bold; border-right: 1px solid #000;">Subtotales:</td>
-                        <td style="text-align: right; font-weight: bold; border-right: 1px solid #000;">$ ${tRem.toFixed(2)}</td>
-                        <td style="text-align: right; font-weight: bold; border-right: 1px solid #000;">$ ${tDesc.toFixed(2)}</td>
-                        <td style="text-align: right; font-weight: bold;">$ ${tNoRem.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold; border-right: 1px solid #000;">$ ${formatoMoneda(tRem)}</td>
+                        <td style="text-align: right; font-weight: bold; border-right: 1px solid #000;">$ ${formatoMoneda(tDesc)}</td>
+                        <td style="text-align: right; font-weight: bold;">$ ${formatoMoneda(tNoRem)}</td>
                     </tr>
-                    <!-- 🟢 ORDEN CORREGIDO: BRUTO -> NO REMUNERATIVO -> DESCUENTOS -> NETO -->
                     <tr>
                         <td colspan="3" rowspan="4" style="border: none; padding: 15px 10px; vertical-align: top;">
                             <p style="margin: 0; font-size: 11px;">Recibí conforme la suma de:<br>
                             <strong>SON: ${textoNetoLimpio}</strong></p>
                         </td>
                         <td colspan="2" style="text-align: center; font-weight: bold; border-left: 1px solid #000; border-bottom: 1px solid #000;">TOTAL BRUTO</td>
-                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${tRem.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${formatoMoneda(tRem)}</td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: center; font-weight: bold; border-left: 1px solid #000; border-bottom: 1px solid #000;">TOTAL NO REMUNERATIVO</td>
-                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${tNoRem.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${formatoMoneda(tNoRem)}</td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: center; font-weight: bold; border-left: 1px solid #000; border-bottom: 1px solid #000;">TOTAL DESCUENTOS</td>
-                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${tDesc.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${formatoMoneda(tDesc)}</td>
                     </tr>
                     <tr>
                         <td colspan="2" style="text-align: center; font-weight: bold; font-size: 13px; border-left: 1px solid #000; background: #e9ecef;">TOTAL NETO</td>
-                        <td style="text-align: right; font-weight: bold; font-size: 13px; background: #e9ecef;">$ ${neto.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold; font-size: 13px; background: #e9ecef;">$ ${formatoMoneda(neto)}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -1872,4 +1880,11 @@ function mostrarAlertaPersonalizada(titulo, mensaje, tipo = 'info', funcionConfi
     });
 
     modalInstance.show();
+}
+function formatoMoneda(valor) {
+    // Convierte el valor a número y le da formato es-AR (155.987,10)
+    return parseFloat(valor || 0).toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
