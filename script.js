@@ -2,7 +2,7 @@
    🔹 SCRIPT.JS: MOTOR COMPACTO v4.0 (BLOQUE 1 DE 4)
    ============================================================ */
 
-const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbz8KK8tzJkunSyybaoJCB7gzRWEZLGkzJ0f_l4IsLbs7DKL_i3Ih0n2prPpLuA5ywHp7Q/exec';
+const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbw8xeCdKoQFS6G-12ywQPNJDoayxgxNwqT0nxLuIjX7XLdiFhrvQH11GnWH_oJtEk_Q-g/exec';
 
 // --- ESTADOS GLOBALES ---
 let cacheEmpresas = [];
@@ -286,7 +286,6 @@ async function cargarEmpleadosEmpresa(cuit) {
         }
 
         const cuitBuscado = cuit.toString().trim();
-
         const filtrados = cacheEmpleados.filter(em => {
             if (!em || !Array.isArray(em)) return false;
             return (em[9] || "").toString().trim() === cuitBuscado;
@@ -302,14 +301,21 @@ async function cargarEmpleadosEmpresa(cuit) {
             const nombre = em[1] || 'Sin Nombre';
             const cuil = em[2] || '---';
             const tarea = em[4] || 'Sin Cargo';
+            
+            // 🔴 NUEVA LÓGICA DE ESTADO (Columna O en Sheets = Índice 14)
+            const estado = em[14] ? em[14].toString().toUpperCase().trim() : 'ACTIVO';
+            const esInactivo = estado === 'INACTIVO';
+            const opacidadFila = esInactivo ? 'opacity-50 bg-light' : '';
+            const checkDisabled = esInactivo ? 'disabled' : '';
+            const badgeEstado = esInactivo ? '<span class="badge bg-danger ms-2" style="font-size: 0.65rem;">INACTIVO</span>' : '';
 
             return `
-            <tr>
+            <tr class="${opacidadFila}">
                 <td class="text-center col-check d-none">
-                    <input type="checkbox" class="form-check-input check-empleado" data-cuil="${cuil}">
+                    <input type="checkbox" class="form-check-input check-empleado border-secondary" data-cuil="${cuil}" ${checkDisabled}>
                 </td>
-                <td class="fw-bold text-uppercase cursor-pointer text-primary" onclick="verFichaEmpleado('${cuil}', '${legajo}')" title="Ver Ficha">
-                    <i class="bi bi-person-lines-fill me-1"></i> ${nombre}
+                <td class="fw-bold text-uppercase cursor-pointer ${esInactivo ? 'text-secondary' : 'text-primary'}" onclick="verFichaEmpleado('${cuil}', '${legajo}')" title="Ver Ficha">
+                    <i class="bi bi-person-lines-fill me-1"></i> ${nombre} ${badgeEstado}
                 </td>
                 <td>${cuil}</td>
                 <td><span class="badge bg-light text-dark border">${tarea}</span></td>
@@ -324,6 +330,85 @@ async function cargarEmpleadosEmpresa(cuit) {
         console.error("Error al cargar empleados:", e);
         cuerpo.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de conexión.</td></tr>';
     }
+}
+function abrirModalEstados() {
+    if (!cuitEmpresaActiva) return mostrarAlertaPersonalizada("Atención", "Seleccioná una empresa primero.", "advertencia");
+    
+    document.getElementById('filtro-estados').value = '';
+    renderizarListaEstados();
+    new bootstrap.Modal(document.getElementById('modalEstados')).show();
+}
+
+function renderizarListaEstados() {
+    const filtro = document.getElementById('filtro-estados').value.toLowerCase();
+    const contenedor = document.getElementById('lista-empleados-estados');
+    const cuitBuscado = cuitEmpresaActiva.toString().trim();
+    
+    const filtrados = cacheEmpleados.filter(em => {
+        if (!em || !Array.isArray(em)) return false;
+        if ((em[9] || "").toString().trim() !== cuitBuscado) return false;
+        
+        const legajo = (em[0] || '').toString().toLowerCase();
+        const nombre = (em[1] || '').toString().toLowerCase();
+        const cuil = (em[2] || '').toString().toLowerCase();
+        
+        return nombre.includes(filtro) || legajo.includes(filtro) || cuil.includes(filtro);
+    });
+
+    contenedor.innerHTML = filtrados.map(em => {
+        const legajo = em[0] || '';
+        const nombre = em[1] || 'Sin Nombre';
+        const cuil = em[2] || '---';
+        const estado = em[14] ? em[14].toString().toUpperCase().trim() : 'ACTIVO';
+        const esInactivo = estado === 'INACTIVO';
+        
+        const btnClase = esInactivo ? 'btn-success' : 'btn-outline-danger';
+        const btnIcono = esInactivo ? 'bi-person-check-fill' : 'bi-person-x-fill';
+        const btnTexto = esInactivo ? 'Habilitar' : 'Deshabilitar';
+        const nuevoEstado = esInactivo ? 'ACTIVO' : 'INACTIVO';
+
+        return `
+        <div class="d-flex justify-content-between align-items-center p-3 border rounded shadow-sm ${esInactivo ? 'bg-light' : 'bg-white'}">
+            <div>
+                <div class="fw-bold text-uppercase ${esInactivo ? 'text-muted' : 'text-dark'}">${nombre}</div>
+                <div class="small text-muted">Leg: ${legajo} | CUIL: ${cuil}</div>
+            </div>
+            <button class="btn btn-sm ${btnClase} fw-bold text-uppercase" onclick="cambiarEstadoEmpleado('${cuil}', '${nuevoEstado}')">
+                <i class="bi ${btnIcono} me-1"></i> ${btnTexto}
+            </button>
+        </div>
+        `;
+    }).join('');
+}
+
+async function cambiarEstadoEmpleado(cuil, nuevoEstado) {
+    try {
+        // 1. Efecto visual inmediato en la web sin esperar a la base de datos
+        const empIndex = cacheEmpleados.findIndex(em => em[2].toString().trim() === cuil.toString().trim());
+        if (empIndex !== -1) cacheEmpleados[empIndex][14] = nuevoEstado;
+        
+        renderizarListaEstados(); 
+        cargarEmpleadosEmpresa(cuitEmpresaActiva); 
+
+        // 2. Mandamos la instrucción al backend de Google Sheets
+        const resp = await fetch(URL_WEB_APP, { 
+            method: 'POST', 
+            body: JSON.stringify({ action: 'cambiarEstadoEmpleado', cuil: cuil, estado: nuevoEstado }) 
+        });
+        
+        const texto = await resp.text();
+        if (texto !== "OK") {
+            mostrarAlertaPersonalizada("Error", "El cambio no se guardó en la base de datos.", "error");
+        }
+    } catch (e) { 
+        mostrarAlertaPersonalizada("Error de conexión", "Revisá tu internet.", "error"); 
+    }
+}
+function toggleTodosEmpleados(masterInput) {
+    // 🔴 REGLA VITAL: Ignorar los checkboxes que están "disabled" (los inactivos)
+    document.querySelectorAll('.check-empleado:not(:disabled)').forEach(chk => {
+        chk.checked = masterInput.checked;
+    });
 }
 
 

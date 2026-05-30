@@ -125,6 +125,9 @@
                     <button class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-sm" onclick="abrirModalEmpleado()">
                         <i class="bi bi-person-plus me-1"></i> AGREGAR EMPLEADO
                     </button>
+                    <button class="btn btn-outline-secondary fw-bold" onclick="abrirModalEstados()">
+                        <i class="bi bi-person-gear me-1"></i> GESTIONAR ESTADOS
+                    </button>
                 </div>
 
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -481,6 +484,21 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="modalEstados" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light border-bottom-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-person-gear me-2"></i> ESTADO DE EMPLEADOS</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="text" id="filtro-estados" class="form-control border-primary shadow-sm mb-3" placeholder="🔍 Buscar por Nombre, Legajo o CUIL..." oninput="renderizarListaEstados()">
+                
+                <div id="lista-empleados-estados" class="d-flex flex-column gap-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
 </body>
