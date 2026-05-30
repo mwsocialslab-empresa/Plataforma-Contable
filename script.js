@@ -1373,7 +1373,7 @@ function imprimirRecibo() {
                 </tfoot>
             </table>
 
-            <div style="font-size: 10px; margin-top: 25px;">
+            <div style="font-size: 10px; margin-top: 33px;">
                 <!-- ALIGN-ITEMS: FLEX-END HACE QUE LA FIRMA BAJE -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-end;">
                     <p style="margin: 0; color: #555; font-size: 9px; width: 60%;">
