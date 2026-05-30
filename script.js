@@ -349,10 +349,10 @@ function actualizarOpcionesGremioEmpleado() {
         const categorias = JSON.parse(decodeURIComponent(opt.dataset.cats));
         let conceptos = JSON.parse(decodeURIComponent(opt.dataset.cons));
 
-        // 🔴 FILTRO: Eliminamos el presentismo combinado (cualquiera que diga COMB) para que no moleste en la ficha
+        // Filtramos el presentismo combinado
         conceptos = conceptos.filter(c => !c.nombre.toUpperCase().includes("(COMB"));
 
-        // Garantizamos que en la planilla del empleado figuren todos, INCLUYENDO ANTIGÜEDAD
+        // Conceptos base obligatorios
         const conceptosBaseDefault = [
             { nombre: "ADICIONAL 1", tipo: "REM", modo: "porcentaje", valor: 4, esCombinado: false },
             { nombre: "PRESENTISMO", tipo: "REM", modo: "porcentaje", valor: 20, esCombinado: false },
@@ -371,6 +371,7 @@ function actualizarOpcionesGremioEmpleado() {
             }
         });
 
+        // ESTRUCTURA NUEVA: Select de categoría + Acordeón desplegable para conceptos
         contenedor.innerHTML = `
             <div class="row g-2 mb-3">
                 <div class="col-md-12">
@@ -381,31 +382,41 @@ function actualizarOpcionesGremioEmpleado() {
                     </select>
                 </div>
             </div>
-            <label class="xs-label mb-2 text-success">Conceptos de Liquidación</label>
-            <div class="row g-2">
-                ${conceptos.map((c, i) => {
-                    const esCombinado = c.esCombinado || false;
-                    const estiloBorde = esCombinado ? 'border-warning' : 'border-secondary';
-                    const bgClass = esCombinado ? 'bg-warning-subtle' : 'bg-white';
-                    
-                    return `
-                    <div class="col-md-6 mb-2">
-                        <div class="border ${estiloBorde} rounded p-2 ${bgClass} small shadow-xs h-100">
-                            <div class="form-check mb-1">
-                                <input class="form-check-input check-concepto-emp" type="checkbox" id="cep-${i}" checked
-                                    data-nombre="${c.nombre}" data-tipo="${c.tipo}" data-modo="${c.modo}" data-combinado="${esCombinado}">
-                                <label class="form-check-label fw-bold text-uppercase" for="cep-${i}">${c.nombre}</label>
-                            </div>
-                            <div class="d-flex align-items-center gap-1">
-                                <span class="small text-muted text-uppercase" style="font-size:0.7rem;">${c.tipo}:</span>
-                                <div class="input-group input-group-sm" style="max-width: 105px;">
-                                    <span class="input-group-text p-1" style="font-size:0.7rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm p-1 fw-bold bg-white" id="val-cep-${i}" value="${c.valor}" oninput="this.value = this.value.replace(',', '.')">
-                                </div>
-                            </div>
+            
+            <div class="accordion accordion-flush border border-secondary-subtle rounded shadow-sm mb-2" id="acc-conceptos-emp">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2 fw-bold text-success bg-success-subtle rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-conceptos-emp">
+                            <i class="bi bi-list-check me-2"></i> CONCEPTOS DE LIQUIDACIÓN
+                        </button>
+                    </h2>
+                    <div id="collapse-conceptos-emp" class="accordion-collapse collapse" data-bs-parent="#acc-conceptos-emp">
+                        <div class="accordion-body p-0">
+                            <ul class="list-group list-group-flush">
+                                ${conceptos.map((c, i) => {
+                                    const esCombinado = c.esCombinado || false;
+                                    const bgClass = esCombinado ? 'bg-warning-subtle' : 'bg-white';
+                                    
+                                    return `
+                                    <li class="list-group-item d-flex justify-content-between align-items-center py-2 ${bgClass}">
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input check-concepto-emp border-secondary" type="checkbox" id="cep-${i}" checked
+                                                data-nombre="${c.nombre}" data-tipo="${c.tipo}" data-modo="${c.modo}" data-combinado="${esCombinado}">
+                                            <label class="form-check-label fw-bold text-uppercase ms-1" for="cep-${i}" style="font-size: 0.8rem;">${c.nombre}</label>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="small text-muted text-uppercase d-none d-sm-inline" style="font-size:0.65rem;">${c.tipo}</span>
+                                            <div class="input-group input-group-sm" style="width: 95px;">
+                                                <span class="input-group-text p-1" style="font-size:0.7rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
+                                                <input type="text" inputmode="decimal" class="form-control form-control-sm p-1 fw-bold text-end bg-white" id="val-cep-${i}" value="${c.valor}" oninput="this.value = this.value.replace(',', '.')">
+                                            </div>
+                                        </div>
+                                    </li>`;
+                                }).join('')}
+                            </ul>
                         </div>
-                    </div>`;
-                }).join('')}
+                    </div>
+                </div>
             </div>`;
     } catch (e) { 
         console.error("Error al renderizar conceptos:", e);
@@ -1606,22 +1617,48 @@ function renderizarConceptosTemporales() {
     const base = document.getElementById('lista-conceptos-base');
     if (!lista || !base) return;
 
-    // Se agrega step="any" al input para que acepte decimales en edición
-    lista.innerHTML = conceptosTemporales.filter(c => !c.esCombinado).map((c, i) => `
-        <div class="col-md-4 mb-2">
-            <div class="p-2 border rounded bg-white shadow-sm position-relative">
-                <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="conceptosTemporales.splice(${i},1);renderizarConceptosTemporales()"></i>
-                <div class="fw-bold small text-uppercase">${c.nombre}</div>
-                <div class="input-group input-group-sm mt-1">
-                    <span class="input-group-text">${c.modo === 'porcentaje' ? '%' : '$'}</span>
-                    <input type="number" step="any" class="form-control" value="${c.valor}" oninput="conceptosTemporales[${i}].valor = parseFloat(this.value)||0">
+    // ESTRUCTURA NUEVA: Acordeón desplegable para conceptos del gremio
+    lista.innerHTML = `
+        <div class="col-12 mb-2">
+            <div class="accordion accordion-flush border border-secondary-subtle rounded shadow-sm" id="acc-conceptos-gre">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2 fw-bold text-success bg-success-subtle rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-conceptos-gre">
+                            <i class="bi bi-list-task me-2"></i> CONCEPTOS SIMPLES (BÁSICOS)
+                        </button>
+                    </h2>
+                    <div id="collapse-conceptos-gre" class="accordion-collapse collapse" data-bs-parent="#acc-conceptos-gre">
+                        <div class="accordion-body p-0">
+                            <ul class="list-group list-group-flush">
+                                ${conceptosTemporales.filter(c => !c.esCombinado).map(c => {
+                                    // Obtenemos el índice real para que la función de eliminar siga funcionando perfecto
+                                    const indexReal = conceptosTemporales.indexOf(c); 
+                                    return `
+                                    <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                        <div class="fw-bold small text-uppercase d-flex align-items-center">
+                                            <i class="bi bi-x-circle text-danger me-2 cursor-pointer fs-6" onclick="conceptosTemporales.splice(${indexReal},1);renderizarConceptosTemporales()" title="Eliminar"></i>
+                                            ${c.nombre}
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="small text-muted text-uppercase d-none d-sm-inline" style="font-size:0.65rem;">${c.tipo}</span>
+                                            <div class="input-group input-group-sm" style="width: 95px;">
+                                                <span class="input-group-text p-1" style="font-size:0.7rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
+                                                <input type="number" step="any" class="form-control form-control-sm p-1 fw-bold text-end bg-white" value="${c.valor}" oninput="conceptosTemporales[${indexReal}].valor = parseFloat(this.value)||0">
+                                            </div>
+                                        </div>
+                                    </li>`;
+                                }).join('')}
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>`).join('');
+        </div>
+    `;
 
-    // Regeneramos los checkboxes base
+    // Regeneramos los checkboxes base para los combinados (esto se mantiene igual)
     base.innerHTML = conceptosTemporales.map((c, i) => `
-        <div class="form-check form-check-inline border rounded px-2 mb-1">
+        <div class="form-check form-check-inline border rounded px-2 mb-1 shadow-xs bg-white">
             <input class="form-check-input" type="checkbox" id="base-${i}">
             <label class="form-check-label small" for="base-${i}">${c.nombre}</label>
         </div>`).join('');
