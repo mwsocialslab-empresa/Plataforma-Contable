@@ -1273,10 +1273,13 @@ function imprimirRecibo() {
 
         function generarMitadRecibo(tipoCopia) {
             return `
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
+            <!-- ESPACIO ARRIBA DEL NOMBRE Y ABAJO DEL BLOQUE -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px; margin-bottom: 15px;">
                 <div>
                     <h4 style="margin: 0; font-weight: bold; text-transform: uppercase;">${nombreEmpresa}</h4>
                     <div style="font-size: 11px; margin-top: 2px;">CUIT: ${cuitEmpresa}</div>
+                    <!-- DIRECCIÓN AGREGADA -->
+                    <div style="font-size: 11px; margin-top: 2px;">Dirección: ${direccionEmpresa}</div>
                 </div>
                 <div style="text-align: right;">
                     <div style="font-weight: bold; font-size: 12px;">${tipoCopia}</div>
@@ -1371,11 +1374,13 @@ function imprimirRecibo() {
             </table>
 
             <div style="font-size: 10px; margin-top: 25px;">
-                <div style="display: flex; justify-content: space-between;">
+                <!-- ALIGN-ITEMS: FLEX-END HACE QUE LA FIRMA BAJE -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
                     <p style="margin: 0; color: #555; font-size: 9px; width: 60%;">
                         En concepto de mis haberes correspondientes al período arriba indicado y según la presente liquidación, dejando constancia de haber recibido un duplicado de este recibo.
                     </p>
-                    <div style="text-align: center; width: 30%; border-top: 1px solid #000; padding-top: 5px;">
+                    <!-- MARGIN-TOP PARA SEPARAR LA LÍNEA -->
+                    <div style="text-align: center; width: 30%; border-top: 1px solid #000; padding-top: 5px; margin-top: 40px;">
                         Firma del Empleado
                     </div>
                 </div>
