@@ -57,7 +57,7 @@
             <section id="sec-inicio" class="seccion-app">
                 <div class="p-5 mb-4 bg-white rounded-4 shadow-sm border text-center">
                     <h1 class="display-6 fw-bold">Gestión de Liquidaciones</h1>
-                    <p class="text-muted">Bienvenido, Walter. Selecciona una opción para comenzar.</p>
+                    <p class="text-muted">Bienvenido, Selecciona una opción para comenzar.</p>
                     <div class="row g-3 mt-2 justify-content-center">
                         <div class="col-6 col-md-4" onclick="mostrarSeccion('empresas')" style="cursor: pointer;">
                             <div class="card border-0 shadow-sm p-4 hover-card h-100">
@@ -135,8 +135,11 @@
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light small text-uppercase">
                                 <tr>
-                                    <th id="th-check-header" class="d-none text-center" style="width: 50px;">
-                                        <input type="checkbox" id="check-todos" class="form-check-input" onclick="toggleTodosEmpleados(this)">
+                                    <th id="th-check-header" class="d-none align-middle text-center" style="width: 120px;">
+                                        <div class="d-flex align-items-center justify-content-center m-0">
+                                            <input type="checkbox" id="check-todos" class="form-check-input border-secondary shadow-sm fs-5 m-0" style="cursor: pointer;" onclick="toggleTodosEmpleados(this)">
+                                            <label class="form-check-label ms-2 fw-bold text-primary cursor-pointer" for="check-todos" style="font-size: 0.8rem; margin-top: 2px;">TODOS</label>
+                                        </div>
                                     </th>
                                     <th>Nombre y Apellido</th>
                                     <th>CUIL</th>
@@ -239,13 +242,17 @@
                             <label class="form-label small fw-bold text-uppercase">Nombre Completo</label>
                             <input type="text" id="empl-nombre" class="form-control" placeholder="Apellido y Nombre" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small fw-bold text-uppercase">CUIL</label>
                             <input type="text" id="empl-cuil" class="form-control" placeholder="00-00000000-0" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small fw-bold text-uppercase">Fecha Ingreso</label>
                             <input type="date" id="empl-ingreso" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-uppercase text-danger">Fecha Baja</label>
+                            <input type="date" id="empl-baja" class="form-control">
                         </div>
                         
                         <hr class="my-3">

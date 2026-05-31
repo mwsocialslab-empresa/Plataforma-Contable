@@ -15,19 +15,33 @@ let conceptosTemporales = [];
 
 // --- LOGIN Y SEGURIDAD ---
 async function validarAcceso(user, pass) {
-    const respuesta = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user, pass })
-    });
-    
-    const data = await respuesta.json();
-    
-    if (data.success) {
-        // 🔴 Ahora sí guardamos la sesión y entramos
+    // 🔴 PARCHE TEMPORAL PARA VS CODE (Go Live)
+    // Si detecta que estás en tu compu local, te deja entrar directo
+    if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
+        console.warn("⚠️ MODO DESARROLLO LOCAL: Saltando validación de Vercel.");
         sessionStorage.setItem("sueldos_auth", "true");
         mostrarSistema();
-    } else {
+        return; // Corta la ejecución acá para no pedirle nada a Vercel
+    }
+
+    // Lógica real para cuando esté subido a Vercel
+    try {
+        const respuesta = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user, pass })
+        });
+        
+        const data = await respuesta.json();
+        
+        if (data.success) {
+            sessionStorage.setItem("sueldos_auth", "true");
+            mostrarSistema();
+        } else {
+            document.getElementById('error-login').classList.remove('d-none');
+        }
+    } catch (error) {
+        console.error("Error en login:", error);
         document.getElementById('error-login').classList.remove('d-none');
     }
 }
@@ -65,10 +79,26 @@ function mostrarSeccion(id) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Aplicar formato de CUIL en vivo al input de empleado
+    const inputCuil = document.getElementById('empl-cuil');
+    if (inputCuil) {
+        inputCuil.addEventListener('input', function() { 
+            formatearCUIL(this); 
+        });
+    }
+
+    // 🔴 NUEVO: Aplicar el mismo formato al CUIT de la Empresa
+    const inputCuitEmpresa = document.getElementById('emp-cuit');
+    if (inputCuitEmpresa) {
+        inputCuitEmpresa.addEventListener('input', function() { 
+            formatearCUIL(this); 
+        });
+    }
+
     if (sessionStorage.getItem("sueldos_auth") === "true") mostrarSistema();
     
-    // 🔴 NUEVA VINCULACIÓN: Capturamos el submit del formulario de login
-    const formLogin = document.getElementById('form-login'); // Asegurate de que tu form en HTML tenga este ID
+    // Capturamos el submit del formulario de login
+    const formLogin = document.getElementById('form-login');
     if (formLogin) {
         formLogin.onsubmit = async (e) => {
             e.preventDefault();
@@ -78,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
     
-    // Vinculación de formularios nativos (esto lo mantenés igual)
+    // Vinculación de formularios nativos
     const formEmpresa = document.getElementById('form-empresa');
     if (formEmpresa) formEmpresa.onsubmit = guardarEmpresa;
     
@@ -311,8 +341,8 @@ async function cargarEmpleadosEmpresa(cuit) {
 
             return `
             <tr class="${opacidadFila}">
-                <td class="text-center col-check d-none">
-                    <input type="checkbox" class="form-check-input check-empleado border-secondary" data-cuil="${cuil}" ${checkDisabled}>
+                <td class="col-check d-none align-middle text-center" style="width: 120px;">
+                    <input type="checkbox" class="form-check-input check-empleado border-secondary shadow-sm fs-5 m-0" style="cursor: pointer;" data-cuil="${cuil}" ${checkDisabled}>
                 </td>
                 <td class="fw-bold text-uppercase cursor-pointer ${esInactivo ? 'text-secondary' : 'text-primary'}" onclick="verFichaEmpleado('${cuil}', '${legajo}')" title="Ver Ficha">
                     <i class="bi bi-person-lines-fill me-1"></i> ${nombre} ${badgeEstado}
@@ -383,14 +413,13 @@ function renderizarListaEstados() {
 
 async function cambiarEstadoEmpleado(cuil, nuevoEstado) {
     try {
-        // 1. Efecto visual inmediato en la web sin esperar a la base de datos
+        // 1. Efecto visual inmediato solo en el modal
         const empIndex = cacheEmpleados.findIndex(em => em[2].toString().trim() === cuil.toString().trim());
         if (empIndex !== -1) cacheEmpleados[empIndex][14] = nuevoEstado;
         
         renderizarListaEstados(); 
-        cargarEmpleadosEmpresa(cuitEmpresaActiva); 
 
-        // 2. Mandamos la instrucción al backend de Google Sheets
+        // 2. Mandamos la instrucción al backend y ESPERAMOS (await)
         const resp = await fetch(URL_WEB_APP, { 
             method: 'POST', 
             body: JSON.stringify({ action: 'cambiarEstadoEmpleado', cuil: cuil, estado: nuevoEstado }) 
@@ -399,6 +428,12 @@ async function cambiarEstadoEmpleado(cuil, nuevoEstado) {
         const texto = await resp.text();
         if (texto !== "OK") {
             mostrarAlertaPersonalizada("Error", "El cambio no se guardó en la base de datos.", "error");
+            // Si falló, revertimos el cambio visual
+            if (empIndex !== -1) cacheEmpleados[empIndex][14] = (nuevoEstado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO');
+            renderizarListaEstados();
+        } else {
+            // 3. SOLO recargamos la tabla de fondo cuando el backend confirmó que guardó con éxito
+            await cargarEmpleadosEmpresa(cuitEmpresaActiva); 
         }
     } catch (e) { 
         mostrarAlertaPersonalizada("Error de conexión", "Revisá tu internet.", "error"); 
@@ -411,7 +446,16 @@ function toggleTodosEmpleados(masterInput) {
     });
 }
 
-
+// NUEVA FUNCIÓN: Formateo automático de CUIL
+function formatearCUIL(input) {
+    let valor = input.value.replace(/\D/g, ''); // Deja solo los números
+    if (valor.length > 2 && valor.length <= 10) {
+        valor = valor.substring(0, 2) + '-' + valor.substring(2);
+    } else if (valor.length > 10) {
+        valor = valor.substring(0, 2) + '-' + valor.substring(2, 10) + '-' + valor.substring(10, 11);
+    }
+    input.value = valor;
+}
 
 async function prepararModalEmpleado() {
     const selectGremio = document.getElementById('empl-gremio');
@@ -548,6 +592,8 @@ async function guardarEmpleado(e) {
         nombre: document.getElementById('empl-nombre').value.trim(),
         cuil: document.getElementById('empl-cuil').value.trim(),
         ingreso: document.getElementById('empl-ingreso').value, 
+        // 🔴 NUEVO: Capturamos la fecha de baja si existe en el HTML
+        baja: document.getElementById('empl-baja') ? document.getElementById('empl-baja').value : "",
         tarea: document.getElementById('empl-tarea').value.trim(),
         bruto: selectCat ? selectCat.value : "0", 
         cuitEmpresa: cuitEmpresa,
@@ -722,6 +768,10 @@ async function cargarDatosEmpleadoEnModal(cuil, legajo) {
     document.getElementById('empl-nombre').value = emp[1] || "";
     document.getElementById('empl-cuil').value = emp[2] || "";
     document.getElementById('empl-ingreso').value = emp[3] ? emp[3].split('T')[0] : "";
+    const inputBaja = document.getElementById('empl-baja');
+    if (inputBaja) {
+        inputBaja.value = emp[15] ? emp[15].split('T')[0] : "";
+    }
     document.getElementById('empl-tarea').value = emp[4] || "";
 
     // 🔴 REPARACIÓN MODALIDAD (MES/HORA)
@@ -902,12 +952,6 @@ function resetearVistaLiquidacion() {
 }
 
 
-
-function toggleTodosEmpleados(masterInput) {
-    document.querySelectorAll('.check-empleado').forEach(chk => {
-        chk.checked = masterInput.checked;
-    });
-}
 function procesarLoteLiquidacion() {
     const seleccionados = [];
     document.querySelectorAll('.check-empleado:checked').forEach(chk => {
@@ -994,22 +1038,19 @@ function procesarLoteLiquidacion() {
                                     </select>
                                 </div>
                                 <div class="col-2">
-                                    <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">A LIQUIDAR</label>
-                                    <select class="form-select form-select-sm select-quincena-liq fw-bold border-secondary" data-cuil="${cuil}">
-                                        <option value="1">1ra QUINCENA</option>
-                                        <option value="2">2da QUINCENA</option>
-                                        <option value="3">MES COMPLETO</option>
-                                    </select>
-                                </div>
-                                <div class="col-2">
                                     <label class="small text-muted fw-bold mb-1 lbl-cantidad-liq" style="font-size: 0.7rem;">${labelCantidad}</label>
                                     <input type="number" step="any" class="form-control form-control-sm input-valor-liq fw-bold border-primary" data-cuil="${cuil}" value="${valorDefecto}" data-bruto="${brutoUnitario}">
                                 </div>
-                                <div class="col-3">
+                                <!-- 🔴 NUEVO CAMPO DE DESCRIPCIÓN (Ocupa 4 columnas para que entre el texto) -->
+                                <div class="col-4">
+                                    <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">DESCRIPCIÓN</label>
+                                    <input type="text" class="form-control form-control-sm input-desc-liq" data-cuil="${cuil}" placeholder="Opcional">
+                                </div>
+                                <div class="col-2">
                                     <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">FECHA DESDE</label>
                                     <input type="date" class="form-control form-control-sm input-desde-liq" data-cuil="${cuil}">
                                 </div>
-                                <div class="col-3">
+                                <div class="col-2">
                                     <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">FECHA HASTA</label>
                                     <input type="date" class="form-control form-control-sm input-hasta-liq" data-cuil="${cuil}">
                                 </div>
@@ -1114,13 +1155,6 @@ function numeroALetras(num) {
     return `RECIBÍ CONFORME LA SUMA DE: ${millones(enteros).trim()} PESOS CON ${centavos}/100.`;
 }
 
-// NUEVA FUNCIÓN: Formatea los números a moneda argentina (Ej: 155.987,10)
-function formatoMoneda(valor) {
-    return parseFloat(valor || 0).toLocaleString('es-AR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-}
 
 function imprimirRecibo() {
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
@@ -1145,7 +1179,7 @@ function imprimirRecibo() {
     let htmlVentana = `<html><head><title>Recibos</title>
         <style>
             @media print { 
-                .no-print { display: none; } 
+                .no-print { display: none !important; } 
                 @page { size: A4; margin: 10mm; } 
                 body { margin: 0; padding: 0; background: #fff; }
                 .hoja-recibo { 
@@ -1163,8 +1197,12 @@ function imprimirRecibo() {
                 body { background: #525659; font-family: sans-serif; }
                 .hoja-recibo { background: white; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 15mm; box-shadow: 0 0 10px rgba(0,0,0,0.5); display: flex; flex-direction: column; box-sizing: border-box; }
                 .mitad-recibo { width: 100%; box-sizing: border-box; }
-                .btn-imprimir { position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 15px 30px; font-size: 18px; font-weight: bold; background: #ffc107; border: 2px solid #000; cursor: pointer; box-shadow: 4px 4px 0 #000; transition: 0.2s; }
-                .btn-imprimir:hover { background: #e0a800; }
+                /* CONTENEDOR DE BOTONES FLOTANTES */
+                .contenedor-botones { position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px; }
+                .btn-imprimir { padding: 10px 20px; font-size: 14px; font-weight: bold; background: #ffc107; border: 2px solid #000; cursor: pointer; box-shadow: 3px 3px 0 #000; transition: 0.2s; border-radius: 5px; }
+                .btn-imprimir:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 #000; }
+                .btn-excel { background: #28a745; color: white; }
+                .btn-word { background: #0d6efd; color: white; }
             }
             .tabla-clasica { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; margin-bottom: 5px; }
             .tabla-clasica th, .tabla-clasica td { border: 1px solid #000; padding: 4px 6px; }
@@ -1173,9 +1211,35 @@ function imprimirRecibo() {
             .tabla-conceptos th { border-bottom: 2px solid #000; }
             .tabla-conceptos td { border-top: none; border-bottom: none; }
         </style>
+        <script>
+            // Funciones inyectadas para exportar en la nueva ventana
+            function exportarExcel() {
+                var html = document.documentElement.outerHTML;
+                var blob = new Blob(['\\ufeff', html], { type: 'application/vnd.ms-excel' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'Recibos_Sueldo.xls';
+                a.click();
+            }
+            function exportarWord() {
+                var header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Recibos</title></head><body>";
+                var footer = "</body></html>";
+                var html = header + document.body.innerHTML + footer;
+                var blob = new Blob(['\\ufeff', html], { type: 'application/msword' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'Recibos_Sueldo.doc';
+                a.click();
+            }
+        </script>
     </head><body>
-        <div class="no-print"><button class="btn-imprimir" onclick="window.print()">🖨️ IMPRIMIR RECIBOS</button></div>`;
-
+        <div class="no-print contenedor-botones">
+            <button class="btn-imprimir" onclick="window.print()">🖨️ IMPRIMIR</button>
+            <button class="btn-imprimir btn-word" onclick="exportarWord()">📄 WORD</button>
+            <button class="btn-imprimir btn-excel" onclick="exportarExcel()">📊 EXCEL</button>
+        </div>`;
     listaParaImprimir.forEach((em) => {
         let conceptos = [];
         try { conceptos = JSON.parse(em[11] || "[]"); } catch(e){}
@@ -1194,6 +1258,8 @@ function imprimirRecibo() {
         const inputValor = document.querySelector(`.input-valor-liq[data-cuil="${cuil}"]`);
         const inputDesde = document.querySelector(`.input-desde-liq[data-cuil="${cuil}"]`);
         const inputHasta = document.querySelector(`.input-hasta-liq[data-cuil="${cuil}"]`);
+        const inputDesc = document.querySelector(`.input-desc-liq[data-cuil="${cuil}"]`);
+        let textoDescripcion = inputDesc && inputDesc.value ? inputDesc.value.trim() : "";
 
         if (selectModo && inputValor) {
             let modoSeleccionado = selectModo.value; 
@@ -1368,13 +1434,43 @@ function imprimirRecibo() {
         let textoNetoLimpio = textoNetoRaw.replace('RECIBÍ CONFORME LA SUMA DE:', '').trim();
 
         function generarMitadRecibo(tipoCopia) {
+            
+            // 🔴 NUEVO: Armamos la fila final dinámicamente. 
+            // Si hay descripción, la metemos al medio. Si está vacía, dejamos el diseño original.
+            let headersFilaFinal = "";
+            let valoresFilaFinal = "";
+
+            if (typeof textoDescripcion !== 'undefined' && textoDescripcion !== "") {
+                headersFilaFinal = `
+                    <th>Último Depósito</th>
+                    <th colspan="2">Descripción / Observación</th>
+                    <th>Domicilio de Pago</th>
+                    <th>Tarea Desempeñada</th>
+                `;
+                valoresFilaFinal = `
+                    <td style="text-align: center;">${periodoRecibo.toUpperCase()}</td>
+                    <td colspan="2" style="text-align: center; font-weight: bold;">${textoDescripcion}</td>
+                    <td style="text-align: center;">${direccionEmpresa}</td>
+                    <td style="text-align: center;">${tarea}</td>
+                `;
+            } else {
+                headersFilaFinal = `
+                    <th colspan="2">Último Depósito</th>
+                    <th colspan="2">Domicilio de Pago</th>
+                    <th>Tarea Desempeñada</th>
+                `;
+                valoresFilaFinal = `
+                    <td colspan="2" style="text-align: center;">${periodoRecibo.toUpperCase()}</td>
+                    <td colspan="2" style="text-align: center;">${direccionEmpresa}</td>
+                    <td style="text-align: center;">${tarea}</td>
+                `;
+            }
+
             return `
-            <!-- ESPACIO ARRIBA DEL NOMBRE Y ABAJO DEL BLOQUE -->
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px; margin-bottom: 15px;">
                 <div>
                     <h4 style="margin: 0; font-weight: bold; text-transform: uppercase;">${nombreEmpresa}</h4>
                     <div style="font-size: 11px; margin-top: 2px;">CUIT: ${cuitEmpresa}</div>
-                    <!-- DIRECCIÓN AGREGADA -->
                     <div style="font-size: 11px; margin-top: 2px;">Dirección: ${direccionEmpresa}</div>
                 </div>
                 <div style="text-align: right;">
@@ -1411,14 +1507,10 @@ function imprimirRecibo() {
                     <td style="text-align: center;">${tarea}</td>
                 </tr>
                 <tr>
-                    <th colspan="2">Período Abonado</th>
-                    <th colspan="2">Domicilio de Pago</th>
-                    <th>Tarea Desempeñada</th>
+                    ${headersFilaFinal}
                 </tr>
                 <tr>
-                    <td colspan="2" style="text-align: center;">${periodoRecibo.toUpperCase()}</td>
-                    <td colspan="2" style="text-align: center;">${direccionEmpresa}</td>
-                    <td style="text-align: center;">${tarea}</td>
+                    ${valoresFilaFinal}
                 </tr>
             </table>
 
@@ -1470,12 +1562,10 @@ function imprimirRecibo() {
             </table>
 
             <div style="font-size: 10px; margin-top: 33px;">
-                <!-- ALIGN-ITEMS: FLEX-END HACE QUE LA FIRMA BAJE -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-end;">
                     <p style="margin: 0; color: #555; font-size: 9px; width: 60%;">
                         En concepto de mis haberes correspondientes al período arriba indicado y según la presente liquidación, dejando constancia de haber recibido un duplicado de este recibo.
                     </p>
-                    <!-- MARGIN-TOP PARA SEPARAR LA LÍNEA -->
                     <div style="text-align: center; width: 30%; border-top: 1px solid #000; padding-top: 5px; margin-top: 40px;">
                         Firma del Empleado
                     </div>
@@ -1695,58 +1785,6 @@ function renderizarTablaGremios() {
             </td>
         </tr>`;
     }).join('');
-}
-
-function renderizarConceptosTemporales() {
-    const lista = document.getElementById('lista-conceptos-gremio');
-    const base = document.getElementById('lista-conceptos-base');
-    if (!lista || !base) return;
-
-    // ESTRUCTURA NUEVA: Acordeón desplegable para conceptos del gremio
-    lista.innerHTML = `
-        <div class="col-12 mb-2">
-            <div class="accordion accordion-flush border border-secondary-subtle rounded shadow-sm" id="acc-conceptos-gre">
-                <div class="accordion-item">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed py-2 fw-bold text-success bg-success-subtle rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-conceptos-gre">
-                            <i class="bi bi-list-task me-2"></i> CONCEPTOS SIMPLES (BÁSICOS)
-                        </button>
-                    </h2>
-                    <div id="collapse-conceptos-gre" class="accordion-collapse collapse" data-bs-parent="#acc-conceptos-gre">
-                        <div class="accordion-body p-0">
-                            <ul class="list-group list-group-flush">
-                                ${conceptosTemporales.filter(c => !c.esCombinado).map(c => {
-                                    // Obtenemos el índice real para que la función de eliminar siga funcionando perfecto
-                                    const indexReal = conceptosTemporales.indexOf(c); 
-                                    return `
-                                    <li class="list-group-item d-flex justify-content-between align-items-center py-2">
-                                        <div class="fw-bold small text-uppercase d-flex align-items-center">
-                                            <i class="bi bi-x-circle text-danger me-2 cursor-pointer fs-6" onclick="conceptosTemporales.splice(${indexReal},1);renderizarConceptosTemporales()" title="Eliminar"></i>
-                                            ${c.nombre}
-                                        </div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="small text-muted text-uppercase d-none d-sm-inline" style="font-size:0.65rem;">${c.tipo}</span>
-                                            <div class="input-group input-group-sm" style="width: 95px;">
-                                                <span class="input-group-text p-1" style="font-size:0.7rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
-                                                <input type="number" step="any" class="form-control form-control-sm p-1 fw-bold text-end bg-white" value="${c.valor}" oninput="conceptosTemporales[${indexReal}].valor = parseFloat(this.value)||0">
-                                            </div>
-                                        </div>
-                                    </li>`;
-                                }).join('')}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Regeneramos los checkboxes base para los combinados (esto se mantiene igual)
-    base.innerHTML = conceptosTemporales.map((c, i) => `
-        <div class="form-check form-check-inline border rounded px-2 mb-1 shadow-xs bg-white">
-            <input class="form-check-input" type="checkbox" id="base-${i}">
-            <label class="form-check-label small" for="base-${i}">${c.nombre}</label>
-        </div>`).join('');
 }
 
 function abrirModalGremio() {
