@@ -1686,7 +1686,57 @@ function renderizarCategoriasTemporales() {
             </div>
         </div>`).join('');
 }
+function renderizarConceptosTemporales() {
+    const lista = document.getElementById('lista-conceptos-gremio');
+    const base = document.getElementById('lista-conceptos-base');
+    if (!lista || !base) return;
 
+    // 🔴 ESTRUCTURA NUEVA: Acordeón desplegable (siempre abierto con la clase "show")
+    lista.innerHTML = `
+        <div class="col-12 mb-2">
+            <div class="accordion accordion-flush border border-secondary-subtle rounded shadow-sm" id="acc-conceptos-gre">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button py-2 fw-bold text-success bg-success-subtle rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-conceptos-gre">
+                            <i class="bi bi-list-task me-2"></i> CONCEPTOS SIMPLES (BÁSICOS)
+                        </button>
+                    </h2>
+                    <div id="collapse-conceptos-gre" class="accordion-collapse collapse show" data-bs-parent="#acc-conceptos-gre">
+                        <div class="accordion-body p-0">
+                            <ul class="list-group list-group-flush">
+                                ${conceptosTemporales.filter(c => !c.esCombinado).map(c => {
+                                    // Obtenemos el índice real para que la función de eliminar siga funcionando perfecto
+                                    const indexReal = conceptosTemporales.indexOf(c); 
+                                    return `
+                                    <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                        <div class="fw-bold small text-uppercase d-flex align-items-center">
+                                            <i class="bi bi-x-circle text-danger me-2 cursor-pointer fs-6" onclick="conceptosTemporales.splice(${indexReal},1);renderizarConceptosTemporales()" title="Eliminar"></i>
+                                            ${c.nombre}
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="small text-muted text-uppercase d-none d-sm-inline" style="font-size:0.65rem;">${c.tipo}</span>
+                                            <div class="input-group input-group-sm" style="width: 95px;">
+                                                <span class="input-group-text p-1" style="font-size:0.7rem">${c.modo === 'porcentaje' ? '%' : '$'}</span>
+                                                <input type="number" step="any" class="form-control form-control-sm p-1 fw-bold text-end bg-white" value="${c.valor}" oninput="conceptosTemporales[${indexReal}].valor = parseFloat(this.value)||0">
+                                            </div>
+                                        </div>
+                                    </li>`;
+                                }).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Regeneramos los checkboxes base para los conceptos combinados
+    base.innerHTML = conceptosTemporales.map((c, i) => `
+        <div class="form-check form-check-inline border rounded px-2 mb-1 shadow-xs bg-white">
+            <input class="form-check-input" type="checkbox" id="base-${i}">
+            <label class="form-check-label small" for="base-${i}">${c.nombre}</label>
+        </div>`).join('');
+}
 function agregarConceptoTemporal() {
     const nombre = document.getElementById('con-nombre').value.trim();
     const tipo = document.getElementById('con-tipo').value;
@@ -1765,21 +1815,24 @@ function renderizarTablaGremios() {
     if (!cuerpo) return;
     
     cuerpo.innerHTML = cacheGremios.map(g => {
-        const catsEscaped = encodeURIComponent(g[2] || "[]");
-        const consEscaped = encodeURIComponent(g[3] || "[]");
+        // 🔴 Se encriptan todas las variables para que NUNCA rompan el evento onclick
+        const nombreEscaped = encodeURIComponent(g[0] || "").replace(/'/g, "%27");
+        const actividadEscaped = encodeURIComponent(g[1] || "").replace(/'/g, "%27");
+        const catsEscaped = encodeURIComponent(g[2] || "[]").replace(/'/g, "%27");
+        const consEscaped = encodeURIComponent(g[3] || "[]").replace(/'/g, "%27");
         
         return `
-        <tr onclick="prepararEdicionGremio('${g[0]}', '${g[1]}', '${catsEscaped}', '${consEscaped}')" style="cursor: pointer;" title="Haga clic para editar">
+        <tr onclick="prepararEdicionGremio('${nombreEscaped}', '${actividadEscaped}', '${catsEscaped}', '${consEscaped}')" style="cursor: pointer;" title="Haga clic para editar">
             <td class="fw-bold text-uppercase ps-3">
                 <i class="bi bi-folder2-open text-warning me-2"></i> ${g[0]}
             </td>
             <td class="text-muted fw-bold">${g[1] || '---'}</td>
             <td><span class="badge bg-success-subtle text-success border border-success">Configurado</span></td>
             <td class="text-end pe-3" onclick="event.stopPropagation()">
-                <button class="btn btn-sm btn-outline-warning me-1" onclick="prepararEdicionGremio('${g[0]}', '${g[1]}', '${catsEscaped}', '${consEscaped}')" title="Editar Gremio">
+                <button class="btn btn-sm btn-outline-warning me-1" onclick="prepararEdicionGremio('${nombreEscaped}', '${actividadEscaped}', '${catsEscaped}', '${consEscaped}')" title="Editar Gremio">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="eliminarGremio('${g[0]}')" title="Eliminar Gremio">
+                <button class="btn btn-sm btn-outline-danger" onclick="eliminarGremio('${nombreEscaped}')" title="Eliminar Gremio">
                     <i class="bi bi-trash"></i>
                 </button>
             </td>
@@ -1878,7 +1931,11 @@ async function guardarGremio(e) {
     }
 }
 
-function prepararEdicionGremio(nombre, actividad, catsJson, consJson) {
+function prepararEdicionGremio(nombreEsc, actividadEsc, catsJson, consJson) {
+    // 🔴 DESENCRIPTAMOS el nombre y la actividad para limpiar los %20 y %C3%B3
+    const nombre = decodeURIComponent(nombreEsc);
+    const actividad = decodeURIComponent(actividadEsc);
+
     document.getElementById('form-gremio').reset();
     document.getElementById('gre-nombre').value = nombre;
     document.getElementById('gre-actividad').value = actividad;
@@ -1920,10 +1977,13 @@ function prepararEdicionGremio(nombre, actividad, catsJson, consJson) {
     let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
     modal.show();
 }
-function eliminarGremio(nombre) {
+function eliminarGremio(nombreEsc) {
+    // 🔴 DESENCRIPTAMOS EL NOMBRE
+    const nombre = decodeURIComponent(nombreEsc);
+    
     mostrarAlertaPersonalizada(
-        "¿Eliminar Gremio?", 
-        `¿Estás seguro de eliminar por completo el gremio ${nombre}?\nAfectará a las fichas que lo tengan asignado.`, 
+        "¿Eliminar Categoría?", 
+        `¿Estás seguro de eliminar por completo la categoría ${nombre}?\nAfectará a las fichas que lo tengan asignado.`, 
         "peligro", 
         () => ejecutarEliminacionGremio(nombre)
     );
