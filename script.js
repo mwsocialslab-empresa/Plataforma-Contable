@@ -55,7 +55,7 @@ async function validarAcceso(user, pass) {
     }
 
     // 🔴 ACCESO PROVISORIO (¡ELIMINAR ESTO AL TERMINAR LAS PRUEBAS!)
-    if (user === "omarcotarelo" && pass === "1234") {
+    if (user === "admin" && pass === "1234") {
         console.warn("⚠️ ACCESO PROVISORIO UTILIZADO");
         sessionStorage.setItem("sueldos_auth", "true");
         mostrarSistema();
