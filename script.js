@@ -14,7 +14,7 @@ let categoriasTemporales = [];
 let conceptosTemporales = [];
 
 // --- LOGIN Y SEGURIDAD ---
-//async function validarAcceso(user, pass) {
+async function validarAcceso(user, pass) {
     // 🔴 PARCHE TEMPORAL PARA VS CODE (Go Live)
     // Si detecta que estás en tu compu local, te deja entrar directo
     if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
@@ -44,45 +44,8 @@ let conceptosTemporales = [];
         console.error("Error en login:", error);
         document.getElementById('error-login').classList.remove('d-none');
     }
-//}
-async function validarAcceso(user, pass) {
-    // 🔴 PARCHE TEMPORAL PARA VS CODE (Go Live)
-    if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
-        console.warn("⚠️ MODO DESARROLLO LOCAL: Saltando validación de Vercel.");
-        sessionStorage.setItem("sueldos_auth", "true");
-        mostrarSistema();
-        return; 
-    }
-
-    // 🔴 ACCESO PROVISORIO (¡ELIMINAR ESTO AL TERMINAR LAS PRUEBAS!)
-    if (user === "admin" && pass === "1234") {
-        console.warn("⚠️ ACCESO PROVISORIO UTILIZADO");
-        sessionStorage.setItem("sueldos_auth", "true");
-        mostrarSistema();
-        return;
-    }
-
-    // Lógica real para cuando esté subido a Vercel
-    try {
-        const respuesta = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user, pass })
-        });
-        
-        const data = await respuesta.json();
-        
-        if (data.success) {
-            sessionStorage.setItem("sueldos_auth", "true");
-            mostrarSistema();
-        } else {
-            document.getElementById('error-login').classList.remove('d-none');
-        }
-    } catch (error) {
-        console.error("Error en login:", error);
-        document.getElementById('error-login').classList.remove('d-none');
-    }
 }
+
 
 async function mostrarSistema() {
     document.getElementById('pantalla-login').classList.add('d-none');
