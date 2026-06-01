@@ -892,21 +892,29 @@ async function cargarDatosMensualesEmpresa() {
 
     // Campos fijos simplificados y rápidos para la liquidación global
     contenedor.innerHTML = `
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-4 mb-2">
             <label class="xs-label text-white-50 mb-1">Periodo Liquidación</label>
             <input type="month" id="liq-periodo" class="form-control form-control-sm border-0 shadow-sm" value="${new Date().toISOString().slice(0, 7)}">
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-4 mb-2">
+            <label class="xs-label text-white-50 mb-1">Periodo Abonado</label>
+            <input type="date" id="liq-periodo-abonado" class="form-control form-control-sm border-0 shadow-sm">
+        </div>
+        <div class="col-6 col-md-4 mb-2">
             <label class="xs-label text-white-50 mb-1">Fecha de Pago</label>
             <input type="date" id="liq-fecha-pago" class="form-control form-control-sm border-0 shadow-sm">
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-4 mb-2">
             <label class="xs-label text-white-50 mb-1">Banco Depósito</label>
             <input type="text" id="liq-banco" class="form-control form-control-sm border-0 shadow-sm" placeholder="Ej: Banco Nación">
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-4 mb-2">
             <label class="xs-label text-white-50 mb-1">Último Depósito Aportes</label>
             <input type="text" id="liq-aportes" class="form-control form-control-sm border-0 shadow-sm" placeholder="Ej: 10/05/2026">
+        </div>
+        <div class="col-12 col-md-4 mb-2">
+            <label class="xs-label text-white-50 mb-1">Descripción / Observación</label>
+            <input type="text" id="liq-descripcion" class="form-control form-control-sm border-0 shadow-sm" placeholder="Ej: Aguinaldo, Vacaciones...">
         </div>
     `;
 }
@@ -1030,30 +1038,25 @@ function procesarLoteLiquidacion() {
                                 <span class="text-muted fw-normal ms-1" style="font-size: 0.8em;">(CUIL: ${cuil} | Leg: ${legajo})</span>
                             </div>
                             <div class="row g-2 align-items-end">
-                                <div class="col-2">
+                               <div class="col-3">
                                     <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">MODO</label>
                                     <select class="form-select form-select-sm select-modo-liq fw-bold border-primary" data-cuil="${cuil}" onchange="${onChangeJs}">
                                         <option value="MES" ${modoActual === "MES" ? "selected" : ""}>MENSUAL</option>
                                         <option value="HORAS" ${modoActual === "HORAS" ? "selected" : ""}>POR HORA</option>
                                     </select>
                                 </div>
-                                <div class="col-2">
+                                <div class="col-3">
                                     <label class="small text-muted fw-bold mb-1 lbl-cantidad-liq" style="font-size: 0.7rem;">${labelCantidad}</label>
                                     <input type="number" step="any" class="form-control form-control-sm input-valor-liq fw-bold border-primary" data-cuil="${cuil}" value="${valorDefecto}" data-bruto="${brutoUnitario}">
                                 </div>
-                                <!-- 🔴 NUEVO CAMPO DE DESCRIPCIÓN (Ocupa 4 columnas para que entre el texto) -->
-                                <div class="col-4">
-                                    <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">DESCRIPCIÓN</label>
-                                    <input type="text" class="form-control form-control-sm input-desc-liq" data-cuil="${cuil}" placeholder="Opcional">
-                                </div>
-                                <div class="col-2">
+                                <div class="col-3">
                                     <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">FECHA DESDE</label>
                                     <input type="date" class="form-control form-control-sm input-desde-liq" data-cuil="${cuil}">
                                 </div>
-                                <div class="col-2">
+                                <div class="col-3">
                                     <label class="small text-muted fw-bold mb-1" style="font-size: 0.7rem;">FECHA HASTA</label>
                                     <input type="date" class="form-control form-control-sm input-hasta-liq" data-cuil="${cuil}">
-                                </div>
+                                </div> 
                             </div>
                         </td>
                     </tr>
@@ -1173,9 +1176,12 @@ function imprimirRecibo() {
     const fechaPago = document.getElementById('liq-fecha-pago') ? document.getElementById('liq-fecha-pago').value : "";
     let textoFechaPago = fechaPago ? fechaPago.split('-').reverse().join('/') : "";
     
+    const periodoAbonado = document.getElementById('liq-periodo-abonado') ? document.getElementById('liq-periodo-abonado').value : "";
+    let textoPeriodoAbonado = periodoAbonado ? periodoAbonado.split('-').reverse().join('/') : "";
+    
     const banco = document.getElementById('liq-banco') ? document.getElementById('liq-banco').value : "";
     const aportes = document.getElementById('liq-aportes') ? document.getElementById('liq-aportes').value : "";
-
+    const textoDescripcion = document.getElementById('liq-descripcion') ? document.getElementById('liq-descripcion').value.trim() : "";
     let htmlVentana = `<html><head><title>Recibos</title>
         <style>
             @media print { 
@@ -1258,8 +1264,7 @@ function imprimirRecibo() {
         const inputValor = document.querySelector(`.input-valor-liq[data-cuil="${cuil}"]`);
         const inputDesde = document.querySelector(`.input-desde-liq[data-cuil="${cuil}"]`);
         const inputHasta = document.querySelector(`.input-hasta-liq[data-cuil="${cuil}"]`);
-        const inputDesc = document.querySelector(`.input-desc-liq[data-cuil="${cuil}"]`);
-        let textoDescripcion = inputDesc && inputDesc.value ? inputDesc.value.trim() : "";
+        
 
         if (selectModo && inputValor) {
             let modoSeleccionado = selectModo.value; 
@@ -1494,15 +1499,17 @@ function imprimirRecibo() {
                     <td style="text-align: center;"></td>
                     <td style="text-align: center;">$ ${formatoMoneda(brutoUnitario)}</td>
                 </tr>
-                <tr>
-                    <th>Fecha Depósito</th>
-                    <th colspan="2">Banco de Depósito</th>
+                    <tr>
+                    <th>Período Abonado</th>
+                    <th>Fecha de Pago</th>
+                    <th>Banco de Depósito</th>
                     <th>Fecha Último Depósito</th>
                     <th>Calificación Profesional</th>
                 </tr>
                 <tr>
+                    <td style="text-align: center;">${textoPeriodoAbonado}</td>
                     <td style="text-align: center;">${textoFechaPago}</td>
-                    <td colspan="2" style="text-align: center;">${banco}</td>
+                    <td style="text-align: center;">${banco}</td>
                     <td style="text-align: center;">${aportes}</td>
                     <td style="text-align: center;">${tarea}</td>
                 </tr>
@@ -1555,8 +1562,8 @@ function imprimirRecibo() {
                         <td style="text-align: right; font-weight: bold; border-bottom: 1px solid #000;">$ ${formatoMoneda(tDesc)}</td>
                     </tr>
                     <tr>
-                        <td colspan="2" style="text-align: center; font-weight: bold; font-size: 13px; border-left: 1px solid #000; background: #e9ecef;">TOTAL NETO</td>
-                        <td style="text-align: right; font-weight: bold; font-size: 13px; background: #e9ecef;">$ ${formatoMoneda(neto)}</td>
+                        <td colspan="2" style="text-align: center; font-weight: bold; font-size: 13px; border-left: 1px solid #000; border-bottom: 1px solid #000; background: #e9ecef;">TOTAL NETO</td>
+                        <td style="text-align: right; font-weight: bold; font-size: 13px; border-bottom: 1px solid #000; background: #e9ecef;">$ ${formatoMoneda(neto)}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -1664,13 +1671,29 @@ function actualizarPlaceholderValor() {
 function agregarCategoriaGremio() {
     const nombre = document.getElementById('cat-nombre').value.trim();
     const valor = document.getElementById('cat-valor').value;
-    const tipo = document.getElementById('cat-tipo').value;
+    const tipo = document.getElementById('cat-tipo').value; // MENSUAL o POR HORA
+    
+    // Capturamos el nuevo desplegable
+    const claseEl = document.getElementById('cat-clase');
+    const clase = claseEl ? claseEl.value : 'REMUNERATIVO';
 
-    if (!nombre || !valor) return alert("⚠️ Completá el nombre y el valor de la categoría");
+    if (!nombre || !valor) {
+        return mostrarAlertaPersonalizada("Atención", "Completá el nombre y el sueldo básico de la categoría.", "advertencia");
+    }
 
-    categoriasTemporales.push({ nombre: nombre.toUpperCase(), valor: parseFloat(valor), tipo: tipo });
+    // Lo agregamos al arreglo manteniendo la estructura vieja + el dato nuevo
+    categoriasTemporales.push({ 
+        nombre: nombre.toUpperCase(), 
+        valor: parseFloat(valor), 
+        tipo: tipo, 
+        clase: clase 
+    });
+    
+    // Limpiamos y volvemos el foco al nombre para cargar rápido
     document.getElementById('cat-nombre').value = "";
     document.getElementById('cat-valor').value = "";
+    document.getElementById('cat-nombre').focus(); 
+    
     renderizarCategoriasTemporales();
 }
 
@@ -1678,11 +1701,11 @@ function renderizarCategoriasTemporales() {
     const lista = document.getElementById('lista-categorias-gremio');
     if (!lista) return;
     lista.innerHTML = categoriasTemporales.map((c, i) => `
-        <div class="col-md-4">
+        <div class="col-md-4 mb-2">
             <div class="p-2 border rounded bg-white shadow-sm position-relative border-start border-4 border-primary">
-                <div class="fw-bold small text-uppercase">${c.nombre}</div>
-                <div class="text-muted" style="font-size:0.75rem">${c.tipo}: $${c.valor.toLocaleString('es-AR')}</div>
-                <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="categoriasTemporales.splice(${i},1);renderizarCategoriasTemporales()"></i>
+                <div class="fw-bold small text-uppercase" style="padding-right: 15px;">${c.nombre}</div>
+                <div class="text-muted" style="font-size:0.75rem">${c.tipo} | ${c.clase || 'REMUNERATIVO'}: $${parseFloat(c.valor).toLocaleString('es-AR')}</div>
+                <i class="bi bi-x-circle text-danger position-absolute top-0 end-0 m-1 cursor-pointer" onclick="categoriasTemporales.splice(${i},1);renderizarCategoriasTemporales()" title="Eliminar"></i>
             </div>
         </div>`).join('');
 }
@@ -1862,7 +1885,13 @@ function abrirModalGremio() {
     document.getElementById('gre-nombre-original').value = "";
     
     // 3. Abrimos el modal
+    // 3. Abrimos el modal y lo forzamos al 70% de ancho
     const modalElement = document.getElementById('modalGremio');
+    const modalDialog = modalElement.querySelector('.modal-dialog');
+    if (modalDialog) {
+        modalDialog.style.maxWidth = '70%';
+        modalDialog.style.width = '70%';
+    }
     let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
     modal.show();
 
@@ -1974,6 +2003,11 @@ function prepararEdicionGremio(nombreEsc, actividadEsc, catsJson, consJson) {
     renderizarConceptosTemporales();
 
     const modalElement = document.getElementById('modalGremio');
+    const modalDialog = modalElement.querySelector('.modal-dialog');
+    if (modalDialog) {
+        modalDialog.style.maxWidth = '70%';
+        modalDialog.style.width = '70%';
+    }
     let modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
     modal.show();
 }
