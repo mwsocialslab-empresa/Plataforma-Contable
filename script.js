@@ -2,7 +2,7 @@
    🔹 SCRIPT.JS: MOTOR COMPACTO v4.0 (BLOQUE 1 DE 4)
    ============================================================ */
 
-const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbw8xeCdKoQFS6G-12ywQPNJDoayxgxNwqT0nxLuIjX7XLdiFhrvQH11GnWH_oJtEk_Q-g/exec';
+const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbxGYQM40OWSYQbxYGwQ63zEoW87SmL-XjKglUc7fkPlQhDrO98YFsRoFg0x2qXM88mNLg/exec';
 
 // --- ESTADOS GLOBALES ---
 let cacheEmpresas = [];
@@ -54,7 +54,8 @@ async function mostrarSistema() {
 
     try {
         await cargarEmpresas();
-        await cargarGremios(); // Dejamos listo el llamado para cuando acoplemos gremios
+        await cargarGremios(); 
+        await cargarHistorial(); // 🔴 ESTA LÍNEA ES NUEVA
     } catch (error) { console.error("Error inicial:", error); }
 }
 
@@ -1160,6 +1161,7 @@ function numeroALetras(num) {
 
 
 function imprimirRecibo() {
+    let loteHistorial = [];
     const empActiva = cacheEmpresas.find(e => e[2] == cuitEmpresaActiva);
     const nombreEmpresa = empActiva ? empActiva[0] : 'Empresa';
     const direccionEmpresa = empActiva ? empActiva[1] : '';
@@ -1182,6 +1184,7 @@ function imprimirRecibo() {
     const banco = document.getElementById('liq-banco') ? document.getElementById('liq-banco').value : "";
     const aportes = document.getElementById('liq-aportes') ? document.getElementById('liq-aportes').value : "";
     const textoDescripcion = document.getElementById('liq-descripcion') ? document.getElementById('liq-descripcion').value.trim() : "";
+    
     let htmlVentana = `<html><head><title>Recibos</title>
         <style>
             @media print { 
@@ -1203,7 +1206,6 @@ function imprimirRecibo() {
                 body { background: #525659; font-family: sans-serif; }
                 .hoja-recibo { background: white; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 15mm; box-shadow: 0 0 10px rgba(0,0,0,0.5); display: flex; flex-direction: column; box-sizing: border-box; }
                 .mitad-recibo { width: 100%; box-sizing: border-box; }
-                /* CONTENEDOR DE BOTONES FLOTANTES */
                 .contenedor-botones { position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px; }
                 .btn-imprimir { padding: 10px 20px; font-size: 14px; font-weight: bold; background: #ffc107; border: 2px solid #000; cursor: pointer; box-shadow: 3px 3px 0 #000; transition: 0.2s; border-radius: 5px; }
                 .btn-imprimir:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 #000; }
@@ -1218,8 +1220,33 @@ function imprimirRecibo() {
             .tabla-conceptos td { border-top: none; border-bottom: none; }
         </style>
         <script>
-            // Funciones inyectadas para exportar en la nueva ventana
+            // 🔴 NUEVO: Inyectamos la variable con la URL de tu Google Apps Script para que la ventana pueda guardar
+            const URL_WEB_APP = "${URL_WEB_APP}";
+            let yaGuardado = false; // Bandera para no guardar dos veces el mismo recibo si tocan imprimir y luego excel
+
+            // 🔴 NUEVO: Función que ejecuta el guardado desde esta ventana
+            async function ejecutarGuardado() {
+                if(yaGuardado) return; 
+                try {
+                    await fetch(URL_WEB_APP, { 
+                        method: 'POST', 
+                        body: JSON.stringify({ action: 'guardarHistorial', lote: window.datosHistorial }) 
+                    });
+                    yaGuardado = true;
+                    // Recargamos el historial en la ventana principal para que se actualice la pantalla
+                    if(window.opener && window.opener.cargarHistorial) {
+                        window.opener.cargarHistorial();
+                    }
+                } catch(e) { console.error("Error al guardar:", e); }
+            }
+
+            function dispararImpresion() {
+                ejecutarGuardado();
+                window.print();
+            }
+
             function exportarExcel() {
+                ejecutarGuardado();
                 var html = document.documentElement.outerHTML;
                 var blob = new Blob(['\\ufeff', html], { type: 'application/vnd.ms-excel' });
                 var url = URL.createObjectURL(blob);
@@ -1228,7 +1255,9 @@ function imprimirRecibo() {
                 a.download = 'Recibos_Sueldo.xls';
                 a.click();
             }
+
             function exportarWord() {
+                ejecutarGuardado();
                 var header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Recibos</title></head><body>";
                 var footer = "</body></html>";
                 var html = header + document.body.innerHTML + footer;
@@ -1242,10 +1271,11 @@ function imprimirRecibo() {
         </script>
     </head><body>
         <div class="no-print contenedor-botones">
-            <button class="btn-imprimir" onclick="window.print()">🖨️ IMPRIMIR</button>
+            <button class="btn-imprimir" onclick="dispararImpresion()">🖨️ IMPRIMIR</button>
             <button class="btn-imprimir btn-word" onclick="exportarWord()">📄 WORD</button>
             <button class="btn-imprimir btn-excel" onclick="exportarExcel()">📊 EXCEL</button>
         </div>`;
+
     listaParaImprimir.forEach((em) => {
         let conceptos = [];
         try { conceptos = JSON.parse(em[11] || "[]"); } catch(e){}
@@ -1393,7 +1423,6 @@ function imprimirRecibo() {
         function agregarFila(nombre, base, porcentaje, rem, desc, noRem) {
             if (rem === 0 && noRem === 0 && desc === 0) return;
             tRem += rem; tNoRem += noRem; tDesc += desc;
-            // 🔴 APLICANDO EL FORMATO A LAS FILAS
             htmlFilas +=`<tr>
                 <td style="text-align: left;">${nombre}</td>
                 <td style="text-align: center;">${base}</td>
@@ -1435,13 +1464,21 @@ function imprimirRecibo() {
 
         let neto = (tRem + tNoRem) - tDesc; 
         
+        // CAPTURAMOS EL EMPLEADO PARA EL HISTORIAL
+        loteHistorial.push({
+            cuitEmpresa: cuitEmpresa,
+            legajo: legajo,
+            nombre: nombreEmpleado,
+            cuil: cuil,
+            ingreso: fechaIngreso,
+            periodo: periodoRecibo,
+            neto: neto
+        });
+        
         let textoNetoRaw = typeof numeroALetras === 'function' ? numeroALetras(neto) : '';
         let textoNetoLimpio = textoNetoRaw.replace('RECIBÍ CONFORME LA SUMA DE:', '').trim();
 
         function generarMitadRecibo(tipoCopia) {
-            
-            // 🔴 NUEVO: Armamos la fila final dinámicamente. 
-            // Si hay descripción, la metemos al medio. Si está vacía, dejamos el diseño original.
             let headersFilaFinal = "";
             let valoresFilaFinal = "";
 
@@ -1597,7 +1634,13 @@ function imprimirRecibo() {
 
     htmlVentana += `</body></html>`;
     
+    // 🔴 Borramos el guardado silencioso que estaba acá al fondo
+    
     const win = window.open('', '_blank');
+    
+    // 🔴 Le inyectamos los datos a la ventana para que los botones los tengan disponibles
+    win.datosHistorial = loteHistorial;
+    
     win.document.write(htmlVentana);
     win.document.close();
     
@@ -2146,4 +2189,75 @@ function formatoMoneda(valor) {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
+}// ============================================================
+// 🗄️ MÓDULO DE HISTORIAL DE LIQUIDACIONES
+// ============================================================
+let cacheHistorial = [];
+
+async function cargarHistorial() {
+    try {
+        const resp = await fetch(`${URL_WEB_APP}?tabla=historial&t=${Date.now()}`);
+        cacheHistorial = await resp.json();
+        renderizarHistorial();
+    } catch (e) { console.error("Error al cargar historial:", e); }
+}
+
+function renderizarHistorial() {
+    const cuerpo = document.getElementById('tabla-historial-cuerpo');
+    const filtro = document.getElementById('filtro-historial') ? document.getElementById('filtro-historial').value.toLowerCase() : "";
+    if (!cuerpo) return;
+
+    if (!cacheHistorial || cacheHistorial.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No hay liquidaciones guardadas aún.</td></tr>';
+        return;
+    }
+
+    // Filtramos e invertimos para ver los últimos guardados arriba
+    const filtrados = cacheHistorial.filter(h => {
+        if (!h || !Array.isArray(h)) return false;
+        const textoFila = h.join(' ').toLowerCase();
+        return textoFila.includes(filtro);
+    }).reverse();
+
+    cuerpo.innerHTML = filtrados.map(h => {
+        const legajo = h[1] || '---';
+        const nombre = h[2] || '---';
+        const cuil = h[3] || '---';
+        
+        // 🔴 ÚNICO CAMBIO: Limpiamos la fecha para que quede dd/mm/aa
+        let ingreso = h[4] || '---';
+        if (ingreso !== '---' && ingreso.toString().includes('T')) {
+            let fechaPura = ingreso.toString().split('T')[0]; // Separa "2026-04-21"
+            let partes = fechaPura.split('-');                // Divide en ["2026", "04", "21"]
+            let anio = partes[0].slice(-2);                   // Toma el "26"
+            ingreso = `${partes[2]}/${partes[1]}/${anio}`;    // Arma "21/04/26"
+        }
+
+        const periodo = h[5] || '---';
+        const neto = h[6] || 0;
+
+        return `
+        <tr>
+            <td class="fw-bold px-4 text-secondary">${legajo}</td>
+            <td class="fw-bold text-primary text-uppercase">${nombre}</td>
+            <td>${cuil}</td>
+            <td>${ingreso}</td>
+            <td class="text-uppercase"><span class="badge bg-light text-dark border">${periodo}</span></td>
+            <td class="text-end fw-bold fs-6 pe-4 text-success">$ ${formatoMoneda(neto)}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function guardarHistorialEnBase(lote) {
+    if (lote.length === 0) return;
+    try {
+        await fetch(URL_WEB_APP, { 
+            method: 'POST', 
+            body: JSON.stringify({ action: 'guardarHistorial', lote: lote }) 
+        });
+        // Recargamos el historial silenciosamente de fondo
+        cargarHistorial(); 
+    } catch (e) {
+        console.error("No se pudo guardar el historial de fondo:", e);
+    }
 }
